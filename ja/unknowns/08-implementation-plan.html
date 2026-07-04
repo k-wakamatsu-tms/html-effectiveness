@@ -1,0 +1,765 @@
+<!-- Copyright 2026 Anthropic PBC · SPDX-License-Identifier: Apache-2.0 -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>調整可能な計画 — 未知を知る</title>
+<style>
+  :root {
+    --ivory:  #FAF9F5;
+    --paper:  #FFFFFF;
+    --slate:  #141413;
+    --clay:   #D97757;
+    --clay-d: #B85C3E;
+    --oat:    #E3DACC;
+    --olive:  #788C5D;
+    --g100:   #F0EEE6;
+    --g200:   #E6E3DA;
+    --g300:   #D1CFC5;
+    --g500:   #87867F;
+    --g700:   #3D3D3A;
+    --serif: ui-serif, Georgia, "Times New Roman", Times, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ivory);
+    color: var(--slate);
+    font-family: var(--sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 24px 100px; }
+  @media (max-width: 480px) { .wrap { padding: 0 16px 80px; } }
+
+  /* ── page header ─────────────────────── */
+  header.page-head { padding: 56px 0 40px; position: relative; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--g500);
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .eyebrow::before { content: ""; width: 24px; height: 1.5px; background: var(--clay); flex-shrink: 0; }
+  a.back {
+    position: absolute; top: 60px; right: 0;
+    font-family: var(--mono); font-size: 12px;
+    color: var(--g500); text-decoration: none;
+  }
+  a.back:hover { color: var(--clay); }
+  @media (max-width: 640px) { a.back { position: static; display: inline-block; margin-bottom: 16px; } }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(32px, 5vw, 46px);
+    line-height: 1.08;
+    letter-spacing: -0.018em;
+    margin: 0 0 14px;
+  }
+  .lede { font-size: 16.5px; color: var(--g700); max-width: 640px; margin: 0 0 32px; }
+
+  /* prompt box */
+  .prompt-card {
+    background: var(--paper);
+    border: 1.5px solid var(--g300);
+    border-radius: 14px;
+    padding: 22px 26px 24px;
+    position: relative;
+  }
+  .prompt-card .p-label {
+    font-family: var(--mono); font-size: 12px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--clay); margin-bottom: 12px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .prompt-card .p-label::before { content: ""; width: 24px; height: 1.5px; background: var(--clay); }
+  .prompt-card blockquote {
+    margin: 0;
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 17.5px;
+    line-height: 1.5;
+    color: var(--slate);
+    max-width: 62ch;
+  }
+  button.copy-btn {
+    position: absolute; top: 18px; right: 20px;
+    font-family: var(--mono); font-size: 11.5px;
+    background: var(--g100); color: var(--g700);
+    border: 1.5px solid var(--g300); border-radius: 8px;
+    padding: 5px 12px; cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  button.copy-btn:hover { border-color: var(--clay); color: var(--clay-d); }
+  button.copy-btn.copied { background: var(--olive); border-color: var(--olive); color: #fff; }
+  @media (max-width: 640px) {
+    button.copy-btn { position: static; margin-top: 14px; }
+  }
+
+  /* divider row */
+  .produced {
+    display: flex; align-items: center; gap: 16px;
+    margin: 48px 0 36px;
+    font-family: var(--mono); font-size: 12px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--g500); white-space: nowrap;
+  }
+  .produced::before, .produced::after { content: ""; height: 1px; background: var(--g300); flex: 1; }
+
+  /* ══ THE ARTIFACT ══════════════════════ */
+  .artifact {
+    background: var(--paper);
+    border: 1.5px solid var(--g300);
+    border-radius: 14px;
+    padding: 34px 38px 40px;
+  }
+  @media (max-width: 640px) { .artifact { padding: 22px 18px 28px; } }
+
+  .artifact h2.plan-title {
+    font-family: var(--serif); font-weight: 500;
+    font-size: clamp(24px, 3.6vw, 32px);
+    letter-spacing: -0.015em;
+    margin: 0 0 4px;
+  }
+  .plan-sub { font-size: 14px; color: var(--g500); margin: 0 0 20px; }
+  .plan-sub code { font-family: var(--mono); font-size: 12.5px; background: var(--g100); border-radius: 5px; padding: 1px 6px; }
+
+  /* chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 22px; }
+  .chip {
+    display: flex; align-items: baseline; gap: 8px;
+    font-size: 13px; color: var(--g700);
+    background: var(--g100); border: 1.5px solid var(--g200);
+    border-radius: 999px; padding: 6px 16px;
+  }
+  .chip .k { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--g500); }
+  .chip .v { font-weight: 600; color: var(--slate); }
+  .chip .v.risk { color: var(--clay-d); }
+
+  /* sort banner */
+  .sort-banner {
+    background: var(--oat);
+    border: 1.5px solid var(--g300);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 0 0 40px;
+    font-size: 14.5px;
+    color: var(--g700);
+    display: flex; gap: 14px; align-items: flex-start;
+  }
+  .sort-banner .glyph {
+    font-family: var(--mono); font-size: 15px; line-height: 1.35;
+    color: var(--clay-d); white-space: pre; flex-shrink: 0;
+    padding-top: 1px;
+  }
+  .sort-banner strong { color: var(--slate); }
+
+  /* section chrome inside artifact */
+  .plan-sec { margin: 0 0 46px; }
+  .plan-sec:last-of-type { margin-bottom: 0; }
+  .sec-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+  .sec-letter {
+    font-family: var(--mono); font-size: 13px; font-weight: 600;
+    background: var(--slate); color: var(--ivory);
+    width: 26px; height: 26px; border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .sec-letter.soft { background: var(--g300); color: var(--g700); }
+  .sec-head h3 {
+    font-family: var(--serif); font-weight: 500;
+    font-size: 22px; letter-spacing: -0.01em; margin: 0;
+  }
+  .sec-head .likelihood {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+    text-transform: uppercase; border-radius: 6px; padding: 3px 9px;
+  }
+  .likelihood.hi { background: var(--clay); color: #fff; }
+  .likelihood.lo { background: var(--g100); color: var(--g500); border: 1px solid var(--g200); }
+  .sec-intro { font-size: 14px; color: var(--g500); margin: 0 0 22px; max-width: 66ch; }
+
+  h4.sub {
+    font-family: var(--mono); font-size: 12px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--g500); margin: 34px 0 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  h4.sub::before { content: ""; width: 16px; height: 1.5px; background: var(--clay); }
+  h4.sub:first-of-type { margin-top: 0; }
+
+  /* ── schema diagram ── */
+  .schema-wrap { display: grid; grid-template-columns: minmax(0, 340px) 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 720px) { .schema-wrap { grid-template-columns: 1fr; } }
+
+  .table-box {
+    border: 1.5px solid var(--slate);
+    border-radius: 10px;
+    overflow: hidden;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    background: var(--paper);
+  }
+  .table-box .t-name {
+    background: var(--slate); color: var(--ivory);
+    padding: 8px 14px; font-size: 12.5px; letter-spacing: 0.03em;
+  }
+  .table-box .t-name .new-badge {
+    float: right; background: var(--olive); color: #fff;
+    font-size: 9.5px; letter-spacing: 0.1em; border-radius: 4px;
+    padding: 2px 6px; margin-top: 1px;
+  }
+  .col-row {
+    display: flex; justify-content: space-between; gap: 12px;
+    padding: 6px 14px;
+    border-top: 1px solid var(--g200);
+    color: var(--g700);
+  }
+  .col-row .cn { color: var(--slate); }
+  .col-row .ct { color: var(--g500); white-space: nowrap; }
+  .col-row.flag {
+    background: #FBF1EC;
+    border-left: 3px solid var(--clay);
+    padding-left: 11px;
+  }
+  .col-row.flag .cn { color: var(--clay-d); font-weight: 600; }
+  .col-row.alt-note {
+    background: var(--g100);
+    color: var(--g500);
+    font-style: italic;
+    border-left: 3px solid var(--g300);
+    padding-left: 11px;
+    display: block;
+  }
+  .fk { color: var(--g500); font-size: 11px; }
+
+  /* variant switching */
+  [data-variant="main"] .v-alt { display: none; }
+  [data-variant="alt"]  .v-main { display: none; }
+
+  .choice-card {
+    border: 1.5px solid var(--g300);
+    border-radius: 12px;
+    padding: 16px 18px 18px;
+    margin-bottom: 14px;
+    background: var(--ivory);
+  }
+  .choice-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .choice-flag {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
+    background: var(--clay); color: #fff;
+    border-radius: 6px; padding: 3px 8px;
+  }
+  .choice-head .ch-title { font-weight: 600; font-size: 14.5px; }
+  button.alt-toggle {
+    margin-left: auto;
+    font-family: var(--mono); font-size: 11.5px;
+    background: var(--paper); color: var(--clay-d);
+    border: 1.5px solid var(--clay); border-radius: 8px;
+    padding: 5px 12px; cursor: pointer;
+    transition: background .15s;
+  }
+  button.alt-toggle:hover { background: #FBF1EC; }
+  @media (max-width: 560px) { button.alt-toggle { margin-left: 0; } }
+  .choice-body { font-size: 13.5px; color: var(--g700); }
+  .choice-body .pick-label {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--olive); margin-bottom: 3px;
+  }
+  .choice-body .pick-label.alt-l { color: var(--clay-d); }
+  .choice-body ul { margin: 8px 0 0; padding-left: 18px; }
+  .choice-body li { margin-bottom: 4px; }
+  .choice-body li::marker { color: var(--g500); }
+  .tradeoff { color: var(--g500); font-size: 12.5px; margin-top: 8px; }
+  .tradeoff strong { color: var(--clay-d); font-weight: 600; }
+
+  /* ── code blocks with margin notes ── */
+  .code-grid { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 18px; align-items: start; margin-bottom: 22px; }
+  @media (max-width: 720px) { .code-grid { grid-template-columns: 1fr; } }
+  .code-block {
+    background: var(--slate);
+    border-radius: 10px;
+    padding: 16px 0;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--g200);
+  }
+  .code-block .cl-line { padding: 0 18px; white-space: pre; }
+  .code-block .cl-line.flagged {
+    background: rgba(217,119,87,0.16);
+    border-left: 3px solid var(--clay);
+    padding-left: 15px;
+  }
+  .code-block .cm { color: #8a8a82; }
+  .code-block .kw { color: #E8B4A0; }
+  .code-block .ty { color: #C7CBA3; }
+  .code-block .st { color: #D9C7A7; }
+  .code-block .fnum {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    background: var(--clay); color: #fff; border-radius: 50%;
+    width: 15px; height: 15px; line-height: 15px; text-align: center;
+    margin-left: 10px; vertical-align: 1px;
+  }
+  .margin-notes { display: flex; flex-direction: column; gap: 12px; }
+  .m-note {
+    font-size: 12.5px; color: var(--g700);
+    background: var(--g100); border: 1px solid var(--g200);
+    border-radius: 10px; padding: 10px 12px;
+  }
+  .m-note .n-num {
+    display: inline-block; font-family: var(--mono); font-size: 10px; font-weight: 700;
+    background: var(--clay); color: #fff; border-radius: 50%;
+    width: 15px; height: 15px; line-height: 15px; text-align: center;
+    margin-right: 7px; vertical-align: 1px;
+  }
+  .m-note code { font-family: var(--mono); font-size: 11.5px; background: var(--paper); border: 1px solid var(--g200); border-radius: 4px; padding: 0 4px; }
+
+  /* ── UX flow strip ── */
+  .flow-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-bottom: 8px; }
+  @media (max-width: 720px) { .flow-strip { grid-template-columns: 1fr 1fr; gap: 18px 0; } }
+  @media (max-width: 420px) { .flow-strip { grid-template-columns: 1fr; } }
+  .flow-step { position: relative; padding: 0 18px 0 0; }
+  .flow-step + .flow-step { padding-left: 18px; }
+  .flow-step:not(:last-child)::after {
+    content: "→";
+    position: absolute; right: -1px; top: 34px;
+    color: var(--g500); font-size: 15px;
+    transform: translateX(50%);
+  }
+  @media (max-width: 720px) {
+    .flow-step:nth-child(2)::after { display: none; }
+    .flow-step { padding: 0 14px 0 0; }
+  }
+  @media (max-width: 420px) { .flow-step::after { display: none !important; } .flow-step { padding: 0; } }
+  .fs-num {
+    font-family: var(--mono); font-size: 11px; color: var(--g500);
+    margin-bottom: 6px;
+  }
+  .fs-card {
+    border: 1.5px solid var(--g300); border-radius: 10px;
+    background: var(--ivory); padding: 12px 13px;
+    min-height: 108px;
+  }
+  .fs-card.weak { border: 1.5px dashed var(--clay); background: #FBF1EC; }
+  .fs-card .fs-t { font-weight: 600; font-size: 13.5px; margin-bottom: 4px; }
+  .fs-card .fs-d { font-size: 12px; color: var(--g500); line-height: 1.45; }
+  .weak-tag {
+    display: inline-block; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    background: var(--clay); color: #fff; border-radius: 5px;
+    padding: 2px 7px; margin-bottom: 6px;
+  }
+  .flow-note { font-size: 13px; color: var(--g700); background: var(--g100); border-left: 3px solid var(--clay); border-radius: 0 8px 8px 0; padding: 10px 14px; margin-top: 16px; max-width: 64ch; }
+
+  /* ── sequencing timeline ── */
+  .seq { list-style: none; margin: 0; padding: 0; }
+  .seq li {
+    display: grid; grid-template-columns: 30px 1fr auto; gap: 12px;
+    align-items: baseline;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--g200);
+    font-size: 14px;
+  }
+  .seq li:last-child { border-bottom: none; }
+  .seq .s-num {
+    font-family: var(--mono); font-size: 12px; color: var(--paper);
+    background: var(--g500); border-radius: 6px;
+    width: 22px; height: 22px; display: inline-flex;
+    align-items: center; justify-content: center;
+    position: relative; top: 3px;
+  }
+  .seq .s-body strong { font-weight: 600; }
+  .seq .s-body .dep { color: var(--g500); font-size: 12.5px; }
+  .seq .s-est { font-family: var(--mono); font-size: 12px; color: var(--g500); white-space: nowrap; }
+  @media (max-width: 480px) { .seq li { grid-template-columns: 30px 1fr; } .seq .s-est { grid-column: 2; } }
+
+  /* ── mechanical details ── */
+  details.mech {
+    border: 1.5px solid var(--g300);
+    border-radius: 12px;
+    background: var(--g100);
+  }
+  details.mech summary {
+    cursor: pointer;
+    padding: 14px 18px;
+    font-size: 14px; font-weight: 600;
+    list-style: none;
+    display: flex; align-items: center; gap: 10px;
+  }
+  details.mech summary::-webkit-details-marker { display: none; }
+  details.mech summary::before {
+    content: "▸"; color: var(--g500); font-size: 13px;
+    transition: transform .15s; display: inline-block;
+  }
+  details.mech[open] summary::before { transform: rotate(90deg); }
+  details.mech summary .count {
+    font-family: var(--mono); font-size: 11px; color: var(--g500);
+    font-weight: 400; margin-left: auto;
+  }
+  .mech-list { list-style: none; margin: 0; padding: 4px 18px 16px 40px; }
+  .mech-list li {
+    font-size: 13.5px; color: var(--g700);
+    padding: 6px 0; border-top: 1px solid var(--g200);
+  }
+  .mech-list li:first-child { border-top: none; }
+  .mech-list code { font-family: var(--mono); font-size: 12px; background: var(--paper); border: 1px solid var(--g200); border-radius: 4px; padding: 0 5px; }
+  .mech-list .why { color: var(--g500); font-size: 12px; }
+
+  /* ── quick-reply card ── */
+  .tweak-card {
+    margin-top: 44px;
+    border: 1.5px solid var(--slate);
+    border-radius: 14px;
+    background: var(--ivory);
+    padding: 22px 24px 24px;
+  }
+  .tweak-card h3 {
+    font-family: var(--serif); font-weight: 500; font-size: 21px;
+    letter-spacing: -0.01em; margin: 0 0 4px;
+  }
+  .tweak-card > p { font-size: 13.5px; color: var(--g500); margin: 0 0 16px; }
+  .tweak-row {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: var(--paper); border: 1.5px solid var(--g300);
+    border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+  }
+  .tweak-row:last-child { margin-bottom: 0; }
+  .tweak-row .t-num {
+    font-family: var(--mono); font-size: 11px; font-weight: 700;
+    background: var(--oat); color: var(--g700); border-radius: 6px;
+    padding: 2px 8px; flex-shrink: 0; margin-top: 2px;
+  }
+  .tweak-row .t-body { font-size: 13.5px; color: var(--g700); }
+  .tweak-row .t-body .t-q { font-family: var(--serif); font-style: italic; color: var(--slate); }
+  .tweak-row button.copy-btn { position: static; flex-shrink: 0; margin: 0 0 0 auto; }
+  @media (max-width: 560px) { .tweak-row { flex-wrap: wrap; } .tweak-row button.copy-btn { margin-left: 40px; } }
+
+  /* footer */
+  footer.site-foot {
+    margin-top: 56px; padding-top: 24px;
+    border-top: 1.5px solid var(--g300);
+    font-size: 13.5px; color: var(--g500);
+  }
+  footer.site-foot a { color: var(--clay); text-decoration-color: var(--oat); text-underline-offset: 3px; }
+  footer.site-foot a:hover { text-decoration-color: var(--clay); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page-head">
+    <a class="back" href="index.html">← すべての例</a>
+    <div class="eyebrow">未知を知る ・ 実装前</div>
+    <h1>調整可能な計画</h1>
+    <p class="lede">実行順に並んだ計画の代わりに、各部分を<em>あなた</em>が変更しそうな可能性の高さで並べ替えた計画を求めよう — そうすれば注意を払う価値のある判断事項が先に浮かび上がり、機械的な作業は下に沈む。</p>
+
+    <div class="prompt-card">
+      <div class="p-label">プロンプト</div>
+      <blockquote id="the-prompt">アノテーションのエクスポート機能について、HTML形式で実装計画を書いてください。ただし、私が調整したくなりそうな判断事項 — データモデルの変更、新しい型インターフェース、ユーザーに見える部分 — を先頭に置いてください。機械的なリファクタリングは最後に埋めてください。そこはあなたに任せます。</blockquote>
+      <button class="copy-btn" onclick="copyText(this, document.getElementById('the-prompt').textContent)">プロンプトをコピー</button>
+    </div>
+  </header>
+
+  <div class="produced">Claude が生成した内容</div>
+
+  <!-- ═══════════ THE ARTIFACT ═══════════ -->
+  <div class="artifact">
+
+    <h2 class="plan-title">実装計画: アノテーションのエクスポート</h2>
+    <p class="plan-sub">Acme ・ レビューのアノテーションを共有可能な PDF または CSV としてエクスポート ・ ブランチ <code>feat/annotation-export</code></p>
+
+    <div class="chips">
+      <div class="chip"><span class="k">工数</span><span class="v">約2.5人日</span></div>
+      <div class="chip"><span class="k">変更ファイル数</span><span class="v">13件（新規3件）</span></div>
+      <div class="chip"><span class="k">リスク</span><span class="v risk">低〜中</span></div>
+      <div class="chip"><span class="k">マイグレーション</span><span class="v">1件、追加のみ</span></div>
+    </div>
+
+    <div class="sort-banner">
+      <div class="glyph">↑ 調整
+↓ 信頼</div>
+      <div><strong>この計画は実行順ではなく、調整される可能性の高さで並んでいます。</strong> 上から下に読む = 注意を払う価値が高い順です。セクションAにはすべての判断事項があり、セクションBは構築順序、セクションCは機械的な作業なので読み飛ばして問題ありません。</div>
+    </div>
+
+    <!-- ── SECTION A ─────────────────────── -->
+    <section class="plan-sec">
+      <div class="sec-head">
+        <span class="sec-letter">A</span>
+        <h3>変更したくなりそうな判断事項</h3>
+        <span class="likelihood hi">調整の可能性: 高</span>
+      </div>
+      <p class="sec-intro">あなたが同意しないかもしれない判断を下した3つの領域です。フラグが付いた選択肢はそれぞれ、検討した代替案を示しています — 切り替えて比較してください。</p>
+
+      <h4 class="sub">A1 · データモデル — 新しい <span style="text-transform:none">annotation_exports</span> テーブル</h4>
+
+      <div class="schema-wrap">
+        <div class="table-box" id="schema" data-variant="main">
+          <div class="t-name">annotation_exports <span class="new-badge">新規</span></div>
+          <div class="col-row"><span class="cn">id</span><span class="ct">uuid pk</span></div>
+          <div class="col-row"><span class="cn">review_id</span><span class="ct">uuid <span class="fk">→ reviews</span></span></div>
+          <div class="col-row"><span class="cn">requested_by</span><span class="ct">uuid <span class="fk">→ users</span></span></div>
+          <div class="col-row"><span class="cn">status</span><span class="ct">enum(queued, rendering, ready, failed)</span></div>
+          <div class="col-row"><span class="cn">options</span><span class="ct">jsonb</span></div>
+          <div class="col-row flag v-main"><span class="cn">snapshot ①</span><span class="ct">jsonb</span></div>
+          <div class="col-row alt-note v-alt">① snapshot カラムなし — レンダラーが描画時に <b>annotations</b> を live JOIN する</div>
+          <div class="col-row flag v-main2"><span class="cn">artifact_url ②</span><span class="ct">text null</span></div>
+          <div class="col-row flag v-main2"><span class="cn">rendered_at</span><span class="ct">timestamptz null</span></div>
+          <div class="col-row alt-note v-alt2">② アーティファクトを保存しない — <b>GET /exports/:id/download</b> がオンデマンドでレンダリングする</div>
+          <div class="col-row"><span class="cn">created_at</span><span class="ct">timestamptz</span></div>
+        </div>
+
+        <div>
+          <div class="choice-card" data-variant="main" id="c1">
+            <div class="choice-head">
+              <span class="choice-flag">選択 ①</span>
+              <span class="ch-title">スナップショット vs. ライブ JOIN</span>
+              <button class="alt-toggle" onclick="toggleChoice(1)">代替案を見る →</button>
+            </div>
+            <div class="choice-body">
+              <div class="v-main">
+                <div class="pick-label">この計画の選択 — 非正規化スナップショット</div>
+                エクスポートがリクエストされた時点で、アノテーションのペイロードを <b>snapshot jsonb</b> にコピーする。エクスポートは<i>その時点</i>のレビューの記録であり、後の編集・解決・削除が履歴を書き換えることはない。
+                <ul>
+                  <li>レビューがアーカイブされてもエクスポートは有効なまま。</li>
+                  <li>レンダラーは1行読むだけ — <b>annotations</b> と <b>annotation_replies</b> の間でN+1が発生しない。</li>
+                </ul>
+                <p class="tradeoff"><strong>コスト:</strong> 大規模なレビューでは1行あたり約40&nbsp;KB。スナップショットは実際のスレッドに対して古くなる可能性がある。</p>
+              </div>
+              <div class="v-alt">
+                <div class="pick-label alt-l">代替案 — レンダリング時のライブ JOIN</div>
+                スナップショットを省略し、ファイル生成時にレンダラーが <b>annotations</b> を JOIN する。エクスポートは常に現在の状態を反映する。
+                <ul>
+                  <li>データの重複がなく、古さの問題も発生しない。</li>
+                  <li>同じエクスポートを再ダウンロードすると<i>異なる</i>ファイルが生成されることがある — 監査用途では意外な挙動になる。</li>
+                </ul>
+                <p class="tradeoff"><strong>こちらを選ぶ場合:</strong> エクスポートが記録ではなく作業用ドキュメントである場合。一言「<i>live join を使って</i>」と伝えてください。</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="choice-card" data-variant="main" id="c2">
+            <div class="choice-head">
+              <span class="choice-flag">選択 ②</span>
+              <span class="ch-title">保存済みアーティファクト vs. オンデマンドレンダリング</span>
+              <button class="alt-toggle" onclick="toggleChoice(2)">代替案を見る →</button>
+            </div>
+            <div class="choice-body">
+              <div class="v-main">
+                <div class="pick-label">この計画の選択 — 一度レンダリングしてブロブストレージに保存</div>
+                ワーカーが PDF/CSV を一度レンダリングし、<b>artifact_url</b> を書き込む。ダウンロードは署名付き URL へのリダイレクト — 安価でキャッシュ可能、Acme アカウントを持たないレビュアーとも共有できる。
+                <p class="tradeoff"><strong>コスト:</strong> ブロブのライフサイクル管理が必要。30日の TTL 掃除処理を追加する予定（セクションC、項目6）。</p>
+              </div>
+              <div class="v-alt">
+                <div class="pick-label alt-l">代替案 — ダウンロードごとにレンダリング</div>
+                ファイルを保存しない: <b>GET /exports/:id/download</b> が都度新しくレンダリングしてストリーミングする。ストレージは不要だが、大規模レビューではダウンロードごとに約2〜4&nbsp;秒かかり、共有可能な公開リンクも作れない。
+                <p class="tradeoff"><strong>こちらを選ぶ場合:</strong> ストレージやコンプライアンス上の規則により、保存されたコピーが扱いにくい場合。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h4 class="sub">A2 · 新しい型インターフェース</h4>
+
+      <div class="code-grid">
+        <div class="code-block"><!--
+     --><div class="cl-line"><span class="cm">// src/types/exports.ts (new)</span></div><!--
+     --><div class="cl-line"><span class="kw">export interface</span> <span class="ty">ExportRequest</span> {</div><!--
+     --><div class="cl-line">  reviewId: <span class="ty">ReviewId</span>;</div><!--
+     --><div class="cl-line flagged">  format: <span class="st">'pdf'</span> | <span class="st">'csv'</span>;<span class="fnum">1</span></div><!--
+     --><div class="cl-line flagged">  range: <span class="st">'all'</span> | <span class="st">'unresolved'</span> | <span class="ty">TimecodeRange</span>;<span class="fnum">2</span></div><!--
+     --><div class="cl-line">  includeReplies: <span class="kw">boolean</span>;   <span class="cm">// default true</span></div><!--
+     --><div class="cl-line flagged">  includeDrawings: <span class="kw">boolean</span>;  <span class="cm">// default false</span><span class="fnum">3</span></div><!--
+     --><div class="cl-line">}</div><!--
+     --><div class="cl-line">&nbsp;</div><!--
+     --><div class="cl-line"><span class="kw">export interface</span> <span class="ty">AnnotationSnapshot</span> {</div><!--
+     --><div class="cl-line">  id: <span class="ty">AnnotationId</span>;</div><!--
+     --><div class="cl-line">  timecode: <span class="kw">string</span>;          <span class="cm">// "00:04:12.08"</span></div><!--
+     --><div class="cl-line">  author: { id: <span class="ty">UserId</span>; name: <span class="kw">string</span> };</div><!--
+     --><div class="cl-line">  body: <span class="kw">string</span>;</div><!--
+     --><div class="cl-line flagged">  state: <span class="st">'open'</span> | <span class="st">'resolved'</span>;<span class="fnum">4</span></div><!--
+     --><div class="cl-line">  replies: <span class="ty">ReplySnapshot</span>[];</div><!--
+     --><div class="cl-line">}</div><!--
+     --></div>
+        <div class="margin-notes">
+          <div class="m-note"><span class="n-num">1</span>PDF と CSV から開始。後で <code>'xlsx'</code> や <code>'srt'</code> を追加するには、ユニオン型のメンバーとレンダラーを1つ追加するだけで済む。</div>
+          <div class="m-note"><span class="n-num">2</span><code>TimecodeRange</code> により、プロデューサーは1シーン分のノートだけをエクスポートできる。誰もこれを求めていないなら、削除すれば約半日短縮できる。</div>
+          <div class="m-note"><span class="n-num">3</span>描画（フレームへの書き込み）は PDF にラスタライズされる。レンダリング時間が3倍になるため、デフォルトでは無効。</div>
+          <div class="m-note"><span class="n-num">4</span>内部の5状態のステートマシンを、エクスポートでは意図的に2状態に落としている。レビュアーが <code>'wont_fix'</code> を確認する必要があれば教えてください。</div>
+        </div>
+      </div>
+
+      <h4 class="sub">A3 · UX フロー</h4>
+
+      <div class="flow-strip">
+        <div class="flow-step">
+          <div class="fs-num">ステップ1</div>
+          <div class="fs-card">
+            <div class="fs-t">エクスポートボタン</div>
+            <div class="fs-d">レビューツールバーのオーバーフローメニューに追加される新しい項目。「共有リンクをコピー」の隣に配置。</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="fs-num">ステップ2</div>
+          <div class="fs-card">
+            <div class="fs-t">オプションモーダル</div>
+            <div class="fs-d">形式、範囲、返信を含める、描画を含める、を選択。設定画面の <b>ModalForm</b> を再利用。</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="fs-num">ステップ3</div>
+          <div class="fs-card weak">
+            <span class="weak-tag">この計画で最も弱い部分</span>
+            <div class="fs-t">バックグラウンドジョブ + トースト通知</div>
+            <div class="fs-d">エクスポートはワーカー内でレンダリングされる。ユーザーには「完了したらお知らせします」というトースト通知が表示され、他の画面に移動できる。</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="fs-num">ステップ4</div>
+          <div class="fs-card">
+            <div class="fs-t">完了通知</div>
+            <div class="fs-d">ベル通知とダウンロードリンクを表示。レビュー → エクスポートタブにも一覧表示される。</div>
+          </div>
+        </div>
+      </div>
+      <p class="flow-note"><b>ステップ3が弱い理由:</b> 大半のエクスポートは3秒未満で完了するため、投げっぱなしのトースト通知はやり過ぎに感じられるかもしれない — しかし描画付きで400件のアノテーションがあるレビューでは約20&nbsp;秒かかり、これはブロックするには長すぎる。ハイブリッド方式（最大4&nbsp;秒待ってから通知にフォールバック）の方が望ましく、追加コストは約半日。判断はあなたに委ねる。</p>
+    </section>
+
+    <!-- ── SECTION B ─────────────────────── -->
+    <section class="plan-sec">
+      <div class="sec-head">
+        <span class="sec-letter">B</span>
+        <h3>実行順序</h3>
+        <span class="likelihood lo">実行順</span>
+      </div>
+      <p class="sec-intro">実際に構築していく順序です。各ステップは CI を通過する状態で完了し、ステップ5でフラグを切り替えるまでユーザーに見える変更は一切リリースされません。</p>
+      <ol class="seq">
+        <li><span class="s-num">1</span><span class="s-body"><strong>マイグレーション + モデル。</strong> <span class="dep"><b>annotation_exports</b> を作成し、Sequelize モデル・ファクトリ・フィクスチャを接続する。</span></span><span class="s-est">0.5d</span></li>
+        <li><span class="s-num">2</span><span class="s-body"><strong>型 + リクエスト検証。</strong> <span class="dep">A2の内容一式に加え、<b>POST /api/reviews/:id/exports</b> に zod スキーマを追加する。</span></span><span class="s-est">0.25d</span></li>
+        <li><span class="s-num">3</span><span class="s-body"><strong>レンダラー。</strong> <span class="dep">まず CSV（単純）、次に既存の <b>@acme/render</b> サービスを使って PDF。</span></span><span class="s-est">1d</span></li>
+        <li><span class="s-num">4</span><span class="s-body"><strong>ワーカージョブ + ブロブアップロード。</strong> <span class="dep"><b>exports.render</b> にキューイング。3回リトライ後 <b>status = failed</b>。</span></span><span class="s-est">0.25d</span></li>
+        <li><span class="s-num">5</span><span class="s-body"><strong>UI: メニュー項目、モーダル、トースト通知、エクスポートタブ。</strong> <span class="dep">フラグ <b>export_annotations</b> の裏で実装。</span></span><span class="s-est">0.5d</span></li>
+        <li><span class="s-num">6</span><span class="s-body"><strong>テスト、ドキュメント、Acme チームへのフラグロールアウト。</strong></span><span class="s-est">0.25d</span></li>
+      </ol>
+    </section>
+
+    <!-- ── SECTION C ─────────────────────── -->
+    <section class="plan-sec">
+      <div class="sec-head">
+        <span class="sec-letter soft">C</span>
+        <h3>機械的な作業（お任せください）</h3>
+        <span class="likelihood lo">調整の可能性: 低</span>
+      </div>
+      <p class="sec-intro">この機能に必要なリファクタリングと下回り作業。判断が必要な箇所はなく、意図的に折りたたんでいます。</p>
+      <details class="mech">
+        <summary>地味だが必要な作業 <span class="count">8件のタスク・合計約0.5日、上記の見積もりに含まれています</span></summary>
+        <ul class="mech-list">
+          <li><code>AnnotationSerializer</code> を <code>api/annotations.ts</code> から <code>lib/serializers/</code> に抽出し、エクスポートワーカーが再利用できるようにする。 <span class="why">単純な移動で、挙動の変更はなし。</span></li>
+          <li><code>CommentMarker</code> → <code>AnnotationMarker</code> のリネームを完了させる — 3ファイルがまだ非推奨のエイリアスをインポートしている。</li>
+          <li><code>annotation_exports</code> をフィクスチャローダーと CI のデータベースリセットスクリプトに追加する。</li>
+          <li><code>exports.render</code> を <code>workers/index.ts</code> に登録し、デッドレターアラートのリストに追加する。</li>
+          <li>フィーチャーフラグ <code>export_annotations</code> を <code>flags.yaml</code> に作成する（デフォルトはオフ）。</li>
+          <li>期限切れのエクスポートブロブに対する夜間 TTL 掃除処理を <code>jobs/cleanup.ts</code> に追加する（選択②がそのまま採用される場合のみ）。</li>
+          <li><code>openapi.yaml</code> に2つの新しいエンドポイントを追加し、クライアントを再生成する。</li>
+          <li>タイムコード整形用のヘルパーを <code>player/utils.ts</code> から <code>lib/time.ts</code> に移動する — PDF レンダラーがこれを必要としており、プレイヤーのバンドルからインポートすべきではない。</li>
+        </ul>
+      </details>
+    </section>
+
+    <!-- ── quick replies ─────────────────── -->
+    <div class="tweak-card">
+      <h3>この3つを調整する</h3>
+      <p>送信できる中で最も効果的な返信例です。1つコピーして編集し、送信してください — 計画を修正します。</p>
+      <div class="tweak-row">
+        <span class="t-num">①</span>
+        <div class="t-body"><span class="t-q">「選択①をライブ JOIN に切り替えて — ここでのエクスポートは記録ではなく作業用ドキュメントだから。」</span></div>
+        <button class="copy-btn" onclick="copyText(this, '選択①をライブ JOIN に切り替えて — ここでのエクスポートは記録ではなく作業用ドキュメントだから。')">コピー</button>
+      </div>
+      <div class="tweak-row">
+        <span class="t-num">②</span>
+        <div class="t-body"><span class="t-q">「ExportRequest から TimecodeRange を削除して。シーン単位のエクスポートは誰も求めていないから。」</span></div>
+        <button class="copy-btn" onclick="copyText(this, 'ExportRequest から TimecodeRange を削除して。シーン単位のエクスポートは誰も求めていないから。')">コピー</button>
+      </div>
+      <div class="tweak-row">
+        <span class="t-num">③</span>
+        <div class="t-body"><span class="t-q">「ステップ3はハイブリッド方式にして: 最大4秒その場で待ち、その後通知にフォールバック。」</span></div>
+        <button class="copy-btn" onclick="copyText(this, 'ステップ3はハイブリッド方式にして: 最大4秒その場で待ち、その後通知にフォールバック。')">コピー</button>
+      </div>
+    </div>
+
+  </div><!-- /artifact -->
+
+  <footer class="site-foot">
+    <a href="index.html">未知を知る</a> の一部 — ブログ記事の関連サンプルです。
+  </footer>
+
+</div>
+
+<script>
+  function copyText(btn, text) {
+    var done = function () {
+      var orig = btn.dataset.orig || btn.textContent;
+      btn.dataset.orig = orig;
+      btn.textContent = 'コピーしました';
+      btn.classList.add('copied');
+      setTimeout(function () {
+        btn.textContent = orig;
+        btn.classList.remove('copied');
+      }, 1600);
+    };
+    var fallback = function () {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) {}
+      document.body.removeChild(ta);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  // Choice toggles: swap both the choice card body and the matching schema rows.
+  function toggleChoice(n) {
+    var card = document.getElementById('c' + n);
+    var toAlt = card.getAttribute('data-variant') === 'main';
+    var next = toAlt ? 'alt' : 'main';
+    card.setAttribute('data-variant', next);
+    card.querySelector('.alt-toggle').textContent = toAlt ? '← 採用案に戻る' : '代替案を見る →';
+    // schema rows for choice n use classes v-main/v-alt (n=1) or v-main2/v-alt2 (n=2)
+    var suffix = n === 1 ? '' : '2';
+    var schema = document.getElementById('schema');
+    schema.querySelectorAll('.v-main' + suffix).forEach(function (el) {
+      el.style.display = toAlt ? 'none' : '';
+    });
+    schema.querySelectorAll('.v-alt' + suffix).forEach(function (el) {
+      el.style.display = toAlt ? 'block' : 'none';
+    });
+  }
+
+  // Initialize schema alt rows hidden (choice 2 rows aren't covered by the
+  // [data-variant] CSS on #schema since both choices share one diagram).
+  document.querySelectorAll('#schema .v-alt, #schema .v-alt2').forEach(function (el) {
+    el.style.display = 'none';
+  });
+  document.querySelectorAll('#schema .v-main2').forEach(function (el) {
+    el.style.display = '';
+  });
+</script>
+</body>
+</html>

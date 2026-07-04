@@ -1,0 +1,384 @@
+<!-- Copyright 2026 Anthropic PBC · SPDX-License-Identifier: Apache-2.0 -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>acme/api におけるレート制限の仕組み</title>
+<style>
+  :root {
+    --ivory:   #FAF9F5;
+    --slate:   #141413;
+    --clay:    #D97757;
+    --oat:     #E3DACC;
+    --olive:   #788C5D;
+    --gray-150:#F0EEE6;
+    --gray-300:#D1CFC5;
+    --gray-500:#87867F;
+    --gray-700:#3D3D3A;
+    --serif: ui-serif, Georgia, "Times New Roman", serif;
+    --sans:  system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono:  ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--ivory);
+    color: var(--gray-700);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    padding: 56px 24px 120px;
+  }
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 48px;
+  }
+  @media (max-width: 920px) { .page { grid-template-columns: 1fr; } nav { display: none; } }
+
+  /* ── nav ──────────────────────────────── */
+  nav {
+    position: sticky;
+    top: 32px;
+    align-self: start;
+    font-size: 13px;
+  }
+  nav .label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gray-500);
+    margin-bottom: 12px;
+  }
+  nav a {
+    display: block;
+    padding: 5px 0 5px 12px;
+    border-left: 2px solid var(--gray-300);
+    color: var(--gray-700);
+    text-decoration: none;
+  }
+  nav a:hover { color: var(--slate); border-color: var(--slate); }
+  nav a.l2 { padding-left: 24px; font-size: 12.5px; color: var(--gray-500); }
+  nav .files {
+    margin-top: 28px;
+    border-top: 1px solid var(--gray-300);
+    padding-top: 16px;
+  }
+  nav .files code {
+    display: block;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--gray-500);
+    padding: 3px 0;
+  }
+
+  /* ── header ───────────────────────────── */
+  header { margin-bottom: 12px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gray-500);
+    margin-bottom: 10px;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 32px;
+    color: var(--slate);
+    letter-spacing: -0.01em;
+    margin-bottom: 14px;
+  }
+  .tldr {
+    border: 1.5px solid var(--gray-300);
+    border-left: 3px solid var(--clay);
+    border-radius: 10px;
+    background: #fff;
+    padding: 16px 18px;
+    margin-bottom: 8px;
+  }
+  .tldr b { color: var(--slate); }
+
+  h2 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 22px;
+    color: var(--slate);
+    margin: 40px 0 14px;
+    scroll-margin-top: 24px;
+  }
+  p { margin-bottom: 12px; max-width: 680px; }
+  code { font-family: var(--mono); font-size: 13px; }
+
+  /* ── collapsible ─────────────────────── */
+  details {
+    border: 1.5px solid var(--gray-300);
+    border-radius: 10px;
+    background: #fff;
+    margin: 14px 0;
+    overflow: hidden;
+  }
+  summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 14px 16px;
+    font-family: var(--serif);
+    font-size: 16px;
+    color: var(--slate);
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before {
+    content: "▸";
+    color: var(--clay);
+    font-family: var(--sans);
+    font-size: 12px;
+    transition: transform 120ms;
+  }
+  details[open] summary::before { transform: rotate(90deg); }
+  summary .where {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--gray-500);
+    margin-left: auto;
+  }
+  details .body { padding: 0 16px 16px; }
+  details .body p { font-size: 14px; }
+
+  /* ── tabs ─────────────────────────────── */
+  .tabs {
+    border: 1.5px solid var(--gray-300);
+    border-radius: 10px;
+    background: #fff;
+    margin: 16px 0 8px;
+    overflow: hidden;
+  }
+  .tabbar {
+    display: flex;
+    border-bottom: 1px solid var(--gray-300);
+    background: var(--gray-150);
+  }
+  .tabbar button {
+    appearance: none;
+    border: none;
+    background: none;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--gray-500);
+    padding: 10px 16px;
+    cursor: pointer;
+    border-right: 1px solid var(--gray-300);
+  }
+  .tabbar button.on {
+    background: #fff;
+    color: var(--slate);
+    border-bottom: 2px solid var(--clay);
+    margin-bottom: -1px;
+  }
+  .tabs pre {
+    display: none;
+    margin: 0;
+    padding: 16px 18px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--slate);
+    overflow-x: auto;
+  }
+  .tabs pre.on { display: block; }
+  .hl { color: var(--clay); }
+  .cm { color: var(--gray-500); }
+
+  /* ── callout ──────────────────────────── */
+  .callout {
+    display: flex;
+    gap: 12px;
+    border: 1.5px solid var(--oat);
+    background: rgba(227,218,204,0.35);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin: 18px 0;
+    font-size: 14px;
+  }
+  .callout .ico { color: var(--clay); font-weight: 600; }
+
+  /* ── faq ──────────────────────────────── */
+  dl.faq { margin-top: 8px; }
+  dl.faq dt {
+    font-family: var(--serif);
+    font-size: 16px;
+    color: var(--slate);
+    margin-top: 18px;
+  }
+  dl.faq dd { font-size: 14px; margin: 4px 0 0; max-width: 640px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ── side nav ── -->
+  <nav>
+    <div class="label">このページの内容</div>
+    <a href="#tldr">TL;DR</a>
+    <a href="#path">リクエストパス</a>
+    <a href="#path" class="l2">1. 識別</a>
+    <a href="#path" class="l2">2. バケットの参照</a>
+    <a href="#path" class="l2">3. 消費</a>
+    <a href="#path" class="l2">4. 拒否</a>
+    <a href="#config">ルートの設定</a>
+    <a href="#gotchas">注意点</a>
+    <a href="#faq">よくある質問</a>
+    <div class="files">
+      <div class="label">読み込んだファイル</div>
+      <code>middleware/ratelimit.ts</code>
+      <code>lib/tokenBucket.ts</code>
+      <code>config/limits.yaml</code>
+      <code>routes/*.ts</code>
+    </div>
+  </nav>
+
+  <!-- ── main ── -->
+  <main>
+    <header>
+      <div class="eyebrow">リサーチ &amp; ラーニング ・ 機能サマリー</div>
+      <h1><code>acme/api</code> におけるレート制限の仕組み</h1>
+      <div class="tldr" id="tldr">
+        <b>TL;DR</b> — すべてのリクエストは <code>rateLimit()</code> ミドルウェアを通過します。このミドルウェアは
+        呼び出し元を<em>バケットキー</em>に解決し、Redis からトークンバケットを取得して、トークンを1つ消費するか
+        <code>429</code> を返します。上限は <code>config/limits.yaml</code> でルートごとに宣言され、エントリの
+        ないルートは <code>default</code> ティア（APIキーごとに100リクエスト/分）を継承します。
+      </div>
+    </header>
+
+    <h2 id="path">リクエストパスをステップごとに見る</h2>
+    <p>各ステップを展開すると、何が実行され、どこに実装されているかを確認できます。パス全体はおよそ40行で、
+      すべてのリクエストに約0.4&nbsp;ms（p50）を追加します。</p>
+
+    <details open>
+      <summary>1 ・ 呼び出し元を識別 <span class="where">middleware/ratelimit.ts:21</span></summary>
+      <div class="body">
+        <p>ミドルウェアはまず、リクエストを <code>bucketKey</code> に変換します。<code>Authorization</code>
+          ヘッダーが存在すればAPIキーを、なければ（自社のLBのみを信頼する）
+          <code>x-forwarded-for</code> チェーン経由でクライアントIPを使用します。匿名のIPトラフィックには、
+          はるかに低いデフォルトティアが適用されます。</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>2 ・ バケットを参照 <span class="where">lib/tokenBucket.ts:9</span></summary>
+      <div class="body">
+        <p>ルート名とバケットキーを組み合わせたものが、<code>tokens</code> と <code>updatedAt</code> を保持する
+          Redisハッシュ（<code>rl:{route}:{key}</code>）にマッピングされます。キーが存在しない場合は満容量で
+          遅延生成されます — ウォームアップはありません。</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>3 ・ 補充して消費 <span class="where">lib/tokenBucket.ts:31</span></summary>
+      <div class="body">
+        <p>補充量は経過時間から計算され（<code>rate × Δt</code>、上限は <code>burst</code>）、その後トークンが
+          1つ減算されます。この読み取り・更新・書き込み全体は単一のLuaスクリプトとして実行されるため、同時
+          リクエストによる二重消費は発生しません。</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>4 ・ 枯渇時に拒否 <span class="where">middleware/ratelimit.ts:48</span></summary>
+      <div class="body">
+        <p>スクリプトが <code>tokens &lt; 0</code> を返した場合、ミドルウェアは
+          <code>429 Too Many Requests</code> で即座に処理を打ち切り、トークンが1つ補充されるまでの秒数を
+          <code>Retry-After</code> に設定します。成功したレスポンスには常に <code>X-RateLimit-Remaining</code>
+          が付与されます。</p>
+      </div>
+    </details>
+
+    <h2 id="config">ルートに上限を設定する</h2>
+    <p>ミドルウェア自体を変更する必要はありません。ルート名をキーとして <code>config/limits.yaml</code> に
+      エントリを追加し、（必要であれば）ミドルウェアがそのルートを見つけられるようにタグ付けするだけです。</p>
+
+    <div class="tabs" data-tabs>
+      <div class="tabbar">
+        <button class="on" data-t="0">limits.yaml</button>
+        <button data-t="1">route.ts</button>
+        <button data-t="2">クライアントのレスポンス</button>
+      </div>
+<pre class="on"><span class="cm"># config/limits.yaml</span>
+default:
+  rate: 100/min
+  burst: 120
+
+<span class="hl">search.query</span>:
+  rate: 20/min
+  burst: 40
+  key: api_key        <span class="cm"># or: ip</span></pre>
+<pre><span class="cm">// routes/search.ts</span>
+router.post(
+  "/search",
+  <span class="hl">rateLimit("search.query")</span>,
+  handler,
+);</pre>
+<pre>HTTP/1.1 429 Too Many Requests
+Retry-After: 17
+X-RateLimit-Limit: 20
+X-RateLimit-Remaining: 0
+
+{ "error": "rate_limited", "retry_after": 17 }</pre>
+    </div>
+
+    <div class="callout">
+      <span class="ico">★</span>
+      <div>デフォルトティアだけで十分な場合は、YAMLエントリは一切不要です — ハンドラーを引数なしの
+        <code>rateLimit()</code> でラップするだけです。ルート名はパスから自動的に推測されます。</div>
+    </div>
+
+    <h2 id="gotchas">知っておくべき注意点</h2>
+    <ul style="padding-left:20px; max-width:680px;">
+      <li style="margin-bottom:8px;"><b>開発環境では上限がプロセス単位になります。</b> <code>REDIS_URL</code> が
+        未設定の場合、Redisクライアントはインメモリのマップにフォールバックするため、ローカルテストは実際の
+        クラスターの挙動を反映しません。</li>
+      <li style="margin-bottom:8px;"><b>Burst と rate は同じではありません。</b> <code>burst</code> はバケットの
+        容量であり、1分間アイドル状態だった呼び出し元は、<code>rate</code> が低くても <code>burst</code> 件の
+        リクエストを瞬時に送信できます。</li>
+      <li><b>ストリーミングレスポンスは1回としてカウントされます。</b> トークンはリクエスト開始時に消費される
+        ため、30秒間のSSEストリームであってもコストはトークン1つ分です。</li>
+    </ul>
+
+    <h2 id="faq">よくある質問</h2>
+    <dl class="faq">
+      <dt>内部トラフィックを除外するにはどうすればよいですか？</dt>
+      <dd>呼び出し元から <code>x-acme-internal: 1</code> を設定してください。ミドルウェアはこれをmTLSの
+        ピア名と照合し、バケット処理を完全にスキップします。</dd>
+
+      <dt>誰が制限を受けているかはどこで確認できますか？</dt>
+      <dd><code>429</code> が発生するたびに、ルートとキー種別のタグが付いた <code>ratelimit.rejected</code>
+        メトリクスが送出されます。<em>API → Health</em> 配下にGrafanaパネルがあります。</dd>
+
+      <dt>特定のユーザーだけ上限を高くできますか？</dt>
+      <dd>できます — YAML内の <code>overrides:</code> に該当ユーザーのAPIキーを追加してください。
+        オーバーライドはデプロイなしで再読み込みされます。</dd>
+    </dl>
+  </main>
+
+</div>
+
+<script>
+document.querySelectorAll("[data-tabs]").forEach(box => {
+  const btns = box.querySelectorAll("button");
+  const panes = box.querySelectorAll("pre");
+  btns.forEach(b => b.addEventListener("click", () => {
+    btns.forEach(x => x.classList.remove("on"));
+    panes.forEach(x => x.classList.remove("on"));
+    b.classList.add("on");
+    panes[+b.dataset.t].classList.add("on");
+  }));
+});
+</script>
+</body>
+</html>

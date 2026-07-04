@@ -1,0 +1,455 @@
+<!-- Copyright 2026 Anthropic PBC · SPDX-License-Identifier: Apache-2.0 -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>デバウンス検索 — 3つのアプローチ</title>
+  <style>
+    :root {
+      --ivory:    #FAF9F5;
+      --slate:    #141413;
+      --clay:     #D97757;
+      --oat:      #E3DACC;
+      --olive:    #788C5D;
+      --gray-150: #F0EEE6;
+      --gray-300: #D1CFC5;
+      --gray-500: #87867F;
+      --gray-700: #3D3D3A;
+      --white:    #FFFFFF;
+
+      --serif: ui-serif, Georgia, 'Times New Roman', serif;
+      --sans:  system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --mono:  ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--ivory);
+      color: var(--gray-700);
+      line-height: 1.55;
+      padding: 56px 32px 96px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      max-width: 1360px;
+      margin: 0 auto;
+    }
+
+    /* ---------- header ---------- */
+
+    header.page-head {
+      margin-bottom: 48px;
+      max-width: 760px;
+    }
+
+    .eyebrow {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gray-500);
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 38px;
+      line-height: 1.15;
+      color: var(--slate);
+      margin-bottom: 18px;
+      letter-spacing: -0.01em;
+    }
+
+    .prompt-box {
+      background: var(--gray-150);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      padding: 16px 20px;
+      font-size: 14.5px;
+      color: var(--gray-700);
+    }
+
+    .prompt-box .label {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-500);
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    /* ---------- approach grid ---------- */
+
+    .approaches {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 28px;
+      margin-bottom: 56px;
+    }
+
+    @media (max-width: 1100px) {
+      .approaches { grid-template-columns: 1fr; }
+    }
+
+    .approach {
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .approach-head h2 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 21px;
+      color: var(--slate);
+      margin-bottom: 6px;
+    }
+
+    .approach-head .num {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 12px;
+      background: var(--oat);
+      color: var(--slate);
+      padding: 2px 8px;
+      border-radius: 8px;
+      margin-right: 8px;
+      vertical-align: 3px;
+    }
+
+    .approach-head p {
+      font-size: 14px;
+      color: var(--gray-500);
+    }
+
+    /* ---------- code panel ---------- */
+
+    .code {
+      background: var(--slate);
+      border-radius: 12px;
+      padding: 18px 20px;
+      overflow-x: auto;
+    }
+
+    .code pre {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: #E8E6DE;
+      white-space: pre;
+    }
+
+    .code .kw  { color: var(--clay); }     /* keywords */
+    .code .str { color: var(--olive); }    /* strings  */
+    .code .cm  { color: var(--gray-500); } /* comments */
+    .code .fn  { color: #C9B98A; }         /* identifiers, subtle warm */
+
+    /* ---------- tradeoffs table ---------- */
+
+    .tradeoffs {
+      border: 1.5px solid var(--gray-300);
+      border-radius: 8px;
+      overflow: hidden;
+      font-size: 13px;
+    }
+
+    .tradeoffs .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .tradeoffs .row + .row {
+      border-top: 1.5px solid var(--gray-300);
+    }
+
+    .tradeoffs .cell {
+      padding: 10px 14px;
+    }
+
+    .tradeoffs .cell:first-child {
+      border-right: 1.5px solid var(--gray-300);
+    }
+
+    .tradeoffs .head {
+      background: var(--gray-150);
+      font-weight: 600;
+      color: var(--slate);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .tradeoffs .pro::before,
+    .tradeoffs .con::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-right: 8px;
+      vertical-align: 2px;
+    }
+    .tradeoffs .pro::before { background: var(--olive); }
+    .tradeoffs .con::before { background: var(--clay); }
+
+    /* ---------- chip footer ---------- */
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      background: var(--gray-150);
+      border: 1.5px solid var(--gray-300);
+      color: var(--gray-700);
+      padding: 5px 10px;
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+
+    .chip strong { color: var(--slate); font-weight: 600; }
+
+    /* ---------- recommendation ---------- */
+
+    .reco {
+      border-left: 4px solid var(--clay);
+      background: var(--white);
+      border-radius: 0 12px 12px 0;
+      padding: 24px 28px;
+      max-width: 860px;
+    }
+
+    .reco h2 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 22px;
+      color: var(--slate);
+      margin-bottom: 10px;
+    }
+
+    .reco p {
+      font-size: 15px;
+      margin-bottom: 8px;
+    }
+
+    .reco code {
+      font-family: var(--mono);
+      font-size: 0.92em;
+      background: var(--gray-150);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <header class="page-head">
+      <div class="eyebrow">調査 · Acme ウェブクライアント</div>
+      <h1>デバウンス検索を実装する3つの方法</h1>
+      <div class="prompt-box">
+        <span class="label">プロンプト</span>
+        私たちの React コードベースにあるタスクフィルター入力欄に、デバウンス検索を実装する
+        3つの異なる方法を、それぞれのトレードオフとともに教えてください。
+      </div>
+    </header>
+
+    <!-- ============================================================= -->
+
+    <section class="approaches">
+
+      <!-- ---------- Approach 1 ---------- -->
+      <article class="approach">
+        <header class="approach-head">
+          <h2><span class="num">01</span>インラインの useEffect + setTimeout</h2>
+          <p>デバウンス処理を、入力欄を持つコンポーネント自体の中に直接記述する。</p>
+        </header>
+
+        <div class="code"><pre><span class="kw">export function</span> <span class="fn">TaskSearch</span>() {
+  <span class="kw">const</span> [draft, setDraft] = <span class="fn">useState</span>(<span class="str">''</span>);
+  <span class="kw">const</span> [query, setQuery] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+  <span class="fn">useEffect</span>(() <span class="kw">=&gt;</span> {
+    <span class="kw">const</span> id = <span class="fn">setTimeout</span>(() <span class="kw">=&gt;</span> setQuery(draft), <span class="str">300</span>);
+    <span class="kw">return</span> () <span class="kw">=&gt;</span> <span class="fn">clearTimeout</span>(id);
+  }, [draft]);
+
+  <span class="kw">const</span> { data } = <span class="fn">useTasks</span>({ search: query });
+
+  <span class="kw">return</span> (
+    &lt;<span class="fn">input</span>
+      value={draft}
+      onChange={(e) <span class="kw">=&gt;</span> setDraft(e.target.value)}
+      placeholder=<span class="str">"Filter tasks…"</span>
+    /&gt;
+  );
+}</pre></div>
+
+        <div class="tradeoffs">
+          <div class="row head">
+            <div class="cell">メリット</div>
+            <div class="cell">デメリット</div>
+          </div>
+          <div class="row">
+            <div class="cell pro">新たに学ぶべき抽象化が一切ない</div>
+            <div class="cell con">検索が存在する箇所すべてでロジックが重複する</div>
+          </div>
+          <div class="row">
+            <div class="cell pro">devtools でステップ実行しやすい</div>
+            <div class="cell con">1つの概念的な値に対して2つの状態を持つことになる</div>
+          </div>
+          <div class="row">
+            <div class="cell pro">依存関係やバンドルサイズへの変更がない</div>
+            <div class="cell con">遅延の定数値がコンポーネント本体に埋もれてしまう</div>
+          </div>
+        </div>
+
+        <div class="chips">
+          <span class="chip">バンドルへの影響: <strong>+0 kb</strong></span>
+          <span class="chip">テスト容易性: <strong>中</strong></span>
+          <span class="chip">再利用性: <strong>低</strong></span>
+          <span class="chip">SSR 安全性: <strong>あり</strong></span>
+        </div>
+      </article>
+
+      <!-- ---------- Approach 2 ---------- -->
+      <article class="approach">
+        <header class="approach-head">
+          <h2><span class="num">02</span>カスタム useDebounce フック</h2>
+          <p>タイマー処理を <code style="font-family:var(--mono)">src/hooks/</code> 配下の共有フックに切り出す。</p>
+        </header>
+
+        <div class="code"><pre><span class="cm">// src/hooks/useDebounce.ts</span>
+<span class="kw">export function</span> <span class="fn">useDebounce</span>&lt;T&gt;(value: T, ms = <span class="str">300</span>): T {
+  <span class="kw">const</span> [debounced, setDebounced] = <span class="fn">useState</span>(value);
+  <span class="fn">useEffect</span>(() <span class="kw">=&gt;</span> {
+    <span class="kw">const</span> id = <span class="fn">setTimeout</span>(() <span class="kw">=&gt;</span> setDebounced(value), ms);
+    <span class="kw">return</span> () <span class="kw">=&gt;</span> <span class="fn">clearTimeout</span>(id);
+  }, [value, ms]);
+  <span class="kw">return</span> debounced;
+}
+
+<span class="cm">// TaskSearch.tsx</span>
+<span class="kw">const</span> [draft, setDraft] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">const</span> query = <span class="fn">useDebounce</span>(draft, <span class="str">300</span>);
+<span class="kw">const</span> { data } = <span class="fn">useTasks</span>({ search: query });</pre></div>
+
+        <div class="tradeoffs">
+          <div class="row head">
+            <div class="cell">メリット</div>
+            <div class="cell">デメリット</div>
+          </div>
+          <div class="row">
+            <div class="cell pro">フィルター、コマンドバー、ボード検索など全体で1つの import を再利用できる</div>
+            <div class="cell con">保守・ドキュメント化すべきファイルが1つ増える</div>
+          </div>
+          <div class="row">
+            <div class="cell pro">fake timers を使えば単体テストが容易</div>
+            <div class="cell con">ジェネリックの <code style="font-family:var(--mono)">T</code> が意図をやや隠してしまう</div>
+          </div>
+          <div class="row">
+            <div class="cell pro">遅延時間が目に見える、調整可能な引数になっている</div>
+            <div class="cell con">それでもキー入力のたびに再レンダリングされる</div>
+          </div>
+        </div>
+
+        <div class="chips">
+          <span class="chip">バンドルへの影響: <strong>+0.2 kb</strong></span>
+          <span class="chip">テスト容易性: <strong>高</strong></span>
+          <span class="chip">再利用性: <strong>高</strong></span>
+          <span class="chip">SSR 安全性: <strong>あり</strong></span>
+        </div>
+      </article>
+
+      <!-- ---------- Approach 3 ---------- -->
+      <article class="approach">
+        <header class="approach-head">
+          <h2><span class="num">03</span>小さな外部ライブラリ</h2>
+          <p>値とコールバックの両方に対応する <code style="font-family:var(--mono)">use-debounce</code> を採用する。</p>
+        </header>
+
+        <div class="code"><pre><span class="kw">import</span> { useDebouncedCallback }
+  <span class="kw">from</span> <span class="str">'use-debounce'</span>;
+
+<span class="kw">export function</span> <span class="fn">TaskSearch</span>() {
+  <span class="kw">const</span> [query, setQuery] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+  <span class="kw">const</span> onChange = <span class="fn">useDebouncedCallback</span>(
+    (next: <span class="kw">string</span>) <span class="kw">=&gt;</span> setQuery(next),
+    <span class="str">300</span>,
+    { leading: <span class="kw">false</span>, maxWait: <span class="str">1000</span> },
+  );
+
+  <span class="kw">const</span> { data } = <span class="fn">useTasks</span>({ search: query });
+
+  <span class="kw">return</span> (
+    &lt;<span class="fn">input</span>
+      defaultValue=<span class="str">""</span>
+      onChange={(e) <span class="kw">=&gt;</span> onChange(e.target.value)}
+    /&gt;
+  );
+}</pre></div>
+
+        <div class="tradeoffs">
+          <div class="row head">
+            <div class="cell">メリット</div>
+            <div class="cell">デメリット</div>
+          </div>
+          <div class="row">
+            <div class="cell pro">leading / trailing / maxWait を代わりに処理してくれる</div>
+            <div class="cell con">監査・更新が必要な新しいランタイム依存が増える</div>
+          </div>
+          <div class="row">
+            <div class="cell pro">コールバック形式なので中間の再レンダリングを省ける</div>
+            <div class="cell con">非制御コンポーネントは Acme のフォームパターンから外れる</div>
+          </div>
+          <div class="row">
+            <div class="cell pro">アンマウント・flush・キャンセルなどのエッジケースが十分にテストされている</div>
+            <div class="cell con">自前で持てる程度のものに gzip 圧縮後で~1.4 kb かかる</div>
+          </div>
+        </div>
+
+        <div class="chips">
+          <span class="chip">バンドルへの影響: <strong>+1.4 kb</strong></span>
+          <span class="chip">テスト容易性: <strong>高</strong></span>
+          <span class="chip">再利用性: <strong>高</strong></span>
+          <span class="chip">SSR 安全性: <strong>あり</strong></span>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- ============================================================= -->
+
+    <aside class="reco">
+      <h2>推奨</h2>
+      <p>
+        アプローチ02、カスタム<strong> <code>useDebounce</code> フック</strong>を採用しましょう。
+        Acme にはすでに、インラインパターンを手書きしている箇所が3つあり
+        (タスクフィルター、コマンドパレット、メンバーピッカー)、
+        共有フックを1つ切り出すことで、新しい依存関係を持ち込まずに重複を解消できます。
+      </p>
+      <p>
+        アプローチ03を再検討するのは、後になって <code>maxWait</code> や
+        <code>flush()</code> のセマンティクスが必要になった場合だけです —
+        要件が10行程度のフックの枠を超えて拡大したときに初めて、
+        このライブラリはそのバンドルコストに見合う価値を発揮します。
+      </p>
+    </aside>
+
+  </div>
+</body>
+</html>

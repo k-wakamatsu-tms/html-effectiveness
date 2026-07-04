@@ -1,0 +1,716 @@
+<!-- Copyright 2026 Anthropic PBC · SPDX-License-Identifier: Apache-2.0 -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>介入策をブレインストーミングする — 知らないことを知る</title>
+<style>
+  :root {
+    --ivory:  #FAF9F5;
+    --paper:  #FFFFFF;
+    --slate:  #141413;
+    --clay:   #D97757;
+    --clay-d: #B85C3E;
+    --oat:    #E3DACC;
+    --olive:  #788C5D;
+    --g100:   #F0EEE6;
+    --g200:   #E6E3DA;
+    --g300:   #D1CFC5;
+    --g500:   #87867F;
+    --g700:   #3D3D3A;
+    --serif: ui-serif, Georgia, "Times New Roman", Times, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--ivory);
+    color: var(--slate);
+    font-family: var(--sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 24px 160px; }
+
+  /* ── header ─────────────────────────── */
+  header.page-head {
+    padding: 56px 0 8px;
+    position: relative;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--g500);
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 24px; height: 1.5px;
+    background: var(--clay);
+    flex: none;
+  }
+  a.back {
+    position: absolute;
+    top: 58px; right: 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--g500);
+    text-decoration: none;
+  }
+  a.back:hover { color: var(--clay); }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(32px, 4.6vw, 46px);
+    line-height: 1.08;
+    letter-spacing: -0.018em;
+    margin: 0 0 10px;
+  }
+  .lede {
+    font-size: 16px;
+    color: var(--g700);
+    max-width: 640px;
+    margin: 0 0 30px;
+  }
+
+  /* ── prompt box ─────────────────────── */
+  .prompt-card {
+    background: var(--paper);
+    border: 1.5px solid var(--g300);
+    border-radius: 14px;
+    padding: 22px 24px 24px;
+    position: relative;
+  }
+  .prompt-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--clay);
+    margin-bottom: 12px;
+  }
+  .prompt-card blockquote {
+    margin: 0;
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 17.5px;
+    line-height: 1.5;
+    color: var(--slate);
+    max-width: 60ch;
+  }
+  button.copy-prompt {
+    position: absolute;
+    top: 16px; right: 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--g700);
+    background: var(--g100);
+    border: 1.5px solid var(--g300);
+    border-radius: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: border-color 120ms, color 120ms;
+  }
+  button.copy-prompt:hover { border-color: var(--clay); color: var(--clay-d); }
+  button.copy-prompt.copied { color: var(--olive); border-color: var(--olive); }
+  @media (max-width: 560px) {
+    button.copy-prompt { position: static; margin-top: 14px; }
+  }
+
+  /* ── divider ────────────────────────── */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 46px 0 34px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--g500);
+    white-space: nowrap;
+  }
+  .divider::before, .divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--g300);
+  }
+
+  /* ── artifact frame ─────────────────── */
+  .artifact {
+    background: var(--paper);
+    border: 1.5px solid var(--g300);
+    border-radius: 14px;
+    padding: 30px clamp(16px, 3.5vw, 34px) 34px;
+  }
+  .artifact h2 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(23px, 3vw, 29px);
+    letter-spacing: -0.015em;
+    line-height: 1.15;
+    margin: 6px 0 6px;
+  }
+  .art-eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--g500);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .art-eyebrow::before {
+    content: "";
+    width: 24px; height: 1.5px;
+    background: var(--clay);
+    flex: none;
+  }
+  .art-sub {
+    font-size: 14.5px;
+    color: var(--g700);
+    max-width: 66ch;
+    margin: 0 0 26px;
+  }
+  .art-sub code {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    background: var(--g100);
+    border-radius: 5px;
+    padding: 1px 5px;
+  }
+
+  /* ── spectrum strip ─────────────────── */
+  .spectrum {
+    margin: 8px 0 34px;
+  }
+  .spec-labels {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--g500);
+    margin-bottom: 10px;
+  }
+  .spec-labels .lo { color: var(--olive); }
+  .spec-labels .hi { color: var(--clay-d); }
+  .spec-track {
+    position: relative;
+    height: 56px;
+  }
+  .spec-line {
+    position: absolute;
+    left: 0; right: 0; top: 27px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--olive), var(--oat) 45%, var(--clay));
+    border-radius: 1px;
+  }
+  .spec-dot {
+    position: absolute;
+    top: 27px;
+    transform: translate(-50%, -50%);
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--paper);
+    border: 2px solid var(--g500);
+    color: var(--g700);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    transition: border-color 120ms, background 120ms, color 120ms, transform 120ms;
+  }
+  .spec-dot:hover { border-color: var(--slate); transform: translate(-50%, -50%) scale(1.12); }
+  .spec-dot.on {
+    background: var(--clay);
+    border-color: var(--clay-d);
+    color: #fff;
+  }
+  .spec-ticks {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--g500);
+    margin-top: 2px;
+  }
+  @media (max-width: 560px) {
+    .spec-dot { width: 24px; height: 24px; font-size: 10.5px; }
+    .spec-labels { font-size: 9px; }
+  }
+
+  /* ── intervention cards ─────────────── */
+  .cards { display: flex; flex-direction: column; gap: 14px; }
+  .iv {
+    border: 1.5px solid var(--g300);
+    border-radius: 12px;
+    background: var(--ivory);
+    padding: 18px 20px 16px;
+    scroll-margin-top: 20px;
+    transition: border-color 140ms, background 140ms;
+  }
+  .iv.checked { border-color: var(--clay); background: #FDF6F2; }
+  .iv-top {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .iv-num {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--clay-d);
+    flex: none;
+  }
+  .iv h3 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 19px;
+    letter-spacing: -0.01em;
+    margin: 0;
+    flex: 1 1 auto;
+    min-width: 200px;
+  }
+  .chips { display: flex; gap: 8px; align-items: center; flex: none; }
+  .effort {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    border-radius: 999px;
+    padding: 3px 10px;
+    border: 1.5px solid transparent;
+  }
+  .effort.s  { background: #EEF2E6; color: var(--olive); border-color: #C9D4B6; }
+  .effort.m  { background: var(--oat); color: #7A6A4F; border-color: var(--g300); }
+  .effort.l  { background: #F8E7DE; color: var(--clay-d); border-color: #EBC5B4; }
+  .effort.xl { background: var(--clay); color: #fff; border-color: var(--clay-d); }
+  .path {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--g700);
+    background: var(--g100);
+    border: 1px solid var(--g200);
+    border-radius: 6px;
+    padding: 2px 8px;
+    margin: 8px 0 2px;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+  .iv-body { font-size: 14px; color: var(--g700); margin: 8px 0 0; }
+  .iv-body strong { color: var(--slate); font-weight: 600; }
+  .iv-found {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--g500);
+  }
+  .iv-impact {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    margin-top: 10px;
+    font-size: 13.5px;
+    color: var(--g700);
+  }
+  .iv-impact .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--olive);
+    flex: none;
+  }
+  .iv-foot {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--g300);
+  }
+  label.resonate {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--g700);
+    cursor: pointer;
+    user-select: none;
+  }
+  label.resonate input {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    border: 1.5px solid var(--g500);
+    border-radius: 5px;
+    background: var(--paper);
+    cursor: pointer;
+    margin: 0;
+    display: grid;
+    place-content: center;
+    transition: border-color 120ms, background 120ms;
+  }
+  label.resonate input::before {
+    content: "";
+    width: 9px; height: 9px;
+    transform: scale(0);
+    transition: transform 100ms;
+    clip-path: polygon(14% 44%, 0 60%, 40% 100%, 100% 16%, 84% 4%, 38% 71%);
+    background: #fff;
+  }
+  label.resonate input:checked { background: var(--clay); border-color: var(--clay-d); }
+  label.resonate input:checked::before { transform: scale(1.15); }
+  .iv.checked label.resonate { color: var(--clay-d); }
+
+  /* ── sticky reply bar ───────────────── */
+  .replybar {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    background: var(--slate);
+    color: var(--ivory);
+    z-index: 50;
+    box-shadow: 0 -8px 24px rgba(20,20,19,.15);
+  }
+  .replybar-inner {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .rb-count {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--oat);
+    flex: none;
+    white-space: nowrap;
+  }
+  .rb-count b { color: var(--clay); font-size: 15px; }
+  .rb-reply {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--g300);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .rb-reply.live { color: var(--ivory); }
+  button.rb-copy {
+    flex: none;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    background: var(--clay);
+    color: #fff;
+    border: 1.5px solid var(--clay-d);
+    border-radius: 8px;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: background 120ms, opacity 120ms;
+  }
+  button.rb-copy:hover:not(:disabled) { background: var(--clay-d); }
+  button.rb-copy:disabled { opacity: .35; cursor: default; }
+  button.rb-copy.copied { background: var(--olive); border-color: var(--olive); }
+  @media (max-width: 640px) {
+    .replybar-inner { flex-wrap: wrap; gap: 8px; padding: 10px 16px; }
+    .rb-reply { order: 3; flex-basis: 100%; }
+  }
+
+  /* ── footer ─────────────────────────── */
+  footer {
+    margin-top: 56px;
+    font-size: 13px;
+    color: var(--g500);
+  }
+  footer a { color: var(--clay); text-decoration-color: var(--oat); text-underline-offset: 3px; }
+  footer a:hover { text-decoration-color: var(--clay); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page-head">
+    <a class="back" href="index.html">&larr; すべての例に戻る</a>
+    <div class="eyebrow">知らないことを知る &middot; 実装前</div>
+    <h1>介入策をブレインストーミングする</h1>
+    <p class="lede">修正に着手する前に、選択肢の全体像を尋ねてみましょう — それはコードに実際に存在するものに基づいたものです。そうすれば、自分では気づかなかった代替案を踏まえた上で判断を下せます。</p>
+
+    <div class="prompt-card">
+      <div class="prompt-label">プロンプト</div>
+      <blockquote>&ldquo;ざっくりした課題はこうです。Acmeのユーザーがオンボーディング後に離脱してしまいます。コードベースを調べて、介入できそうな場所を10個、コストが低いものから野心的なものまでブレインストーミングしてください。どれが響くか後で伝えます。&rdquo;</blockquote>
+      <button class="copy-prompt" id="copyPrompt" type="button">プロンプトをコピー</button>
+    </div>
+  </header>
+
+  <div class="divider">Claudeが出力した内容</div>
+
+  <div class="artifact">
+    <div class="art-eyebrow">Acme &middot; オンボーディング後の離脱</div>
+    <h2>介入できる10か所、コストが低いものから野心的なものまで</h2>
+    <p class="art-sub">オンボーディング・招待・初回セッションのコードパスについて、<code>apps/web</code>、<code>services/</code>、<code>packages/</code> を調査しました。見えてきたパターンはこうです。<strong>リテンション用の仕組みはすでに数多く存在しているのに、つながっていない</strong> — 以下で紹介する最も安価な選択肢の多くは、新規開発ではなく「配線をつなぐ」だけで済みます。響くものにチェックを入れ、下部の返信をコピーしてください。</p>
+
+    <div class="spectrum">
+      <div class="spec-labels">
+        <span class="lo">今日の午後にリリースできる</span>
+        <span class="hi">四半期がかりの賭け</span>
+      </div>
+      <div class="spec-track" id="specTrack">
+        <div class="spec-line"></div>
+        <button class="spec-dot" style="left:3%"  data-n="1"  type="button" title="行き止まりの空状態を修正する">1</button>
+        <button class="spec-dot" style="left:10%" data-n="2"  type="button" title="サンプルプロジェクトを有効化する">2</button>
+        <button class="spec-dot" style="left:19%" data-n="3"  type="button" title="アプリ内で保留中の招待を表示する">3</button>
+        <button class="spec-dot" style="left:29%" data-n="4"  type="button" title="マイルストーンチェックリストをつなぐ">4</button>
+        <button class="spec-dot" style="left:39%" data-n="5"  type="button" title="初回コメントの瞬間を設計する">5</button>
+        <button class="spec-dot" style="left:49%" data-n="6"  type="button" title="サイレントに失敗した初回アップロードを救済する">6</button>
+        <button class="spec-dot" style="left:60%" data-n="7"  type="button" title="一緒に視聴する初回セッション">7</button>
+        <button class="spec-dot" style="left:71%" data-n="8"  type="button" title="レビューワークフローのテンプレート">8</button>
+        <button class="spec-dot" style="left:84%" data-n="9"  type="button" title="内蔵のクイック画面録画">9</button>
+        <button class="spec-dot" style="left:96%" data-n="10" type="button" title="クライアント向けの本格的なレビューポータル">10</button>
+      </div>
+      <div class="spec-ticks"><span>配線をつなぐ</span><span>新しいUI</span><span>新しいライフサイクル</span><span>新しい機能領域</span></div>
+    </div>
+
+    <div class="cards">
+
+      <div class="iv" id="iv1">
+        <div class="iv-top">
+          <span class="iv-num">#1</span>
+          <h3>行き止まりの空状態を修正する</h3>
+          <div class="chips"><span class="effort s">S</span></div>
+        </div>
+        <span class="path">apps/web/src/onboarding/EmptyState.tsx</span>
+        <p class="iv-body"><span class="iv-found">コードで判明 —</span> プロジェクトが0件のダッシュボードは、イラストと<em>「プロジェクトはまだありません」</em>というコピーを表示するだけで、それ以外は何もありません。<code>NewProjectButton</code> は2つ隣のディレクトリに存在しますが、ここでは一度もインポートされていません。先に進む唯一の手段は、トップナビにある小さな「+」だけです。離脱したユーザーの最後の画面は、おそらくこれだったはずです。</p>
+        <div class="iv-impact"><span class="tag">インパクト</span>新規ユーザーの100%がこの画面に到達します。実質的なCTAと「どこにでも動画をドロップ」というヒントを加えれば、プロダクト内で最も文字どおりの行き止まりを解消できます。</div>
+        <div class="iv-foot"><label class="resonate"><input type="checkbox" data-n="1"> これは響く</label></div>
+      </div>
+
+      <div class="iv" id="iv2">
+        <div class="iv-top">
+          <span class="iv-num">#2</span>
+          <h3>既存のサンプルプロジェクトを有効化する</h3>
+          <div class="chips"><span class="effort s">S</span></div>
+        </div>
+        <span class="path">apps/web/src/projects/sampleProject.ts</span>
+        <p class="iv-body"><span class="iv-found">コードで判明 —</span> 誰かが完全なシード済みデモプロジェクトを作り込んでいました — 45秒のクリップ、タイムスタンプ付きコメント4件、解決済みスレッド1件を備えた「Product teaser v3」で、フラグ <code>sample_project_v1</code> の裏に隠れています。このフラグは全ユーザーに対して今も<strong>false</strong>のままで、ファイルは8か月間触られていません。機能自体は完成しているのに、一度もリリースされなかっただけです。</p>
+        <div class="iv-impact"><span class="tag">インパクト</span>新規ユーザーは、何もアップロードしていない段階で、実際のレビューがどのようなものかを目にできます。考えられる中で最も安価な「アハ体験」です — フラグを切り替え、シードスクリプトを確認するだけです。</div>
+        <div class="iv-foot"><label class="resonate"><input type="checkbox" data-n="2"> これは響く</label></div>
+      </div>
+
+      <div class="iv" id="iv3">
+        <div class="iv-top">
+          <span class="iv-num">#3</span>
+          <h3>アプリ内で保留中の招待を表示する</h3>
+          <div class="chips"><span class="effort s">S</span></div>
+        </div>
+        <span class="path">services/mailer/templates/invite.mjml &middot; apps/web/src/team/TeamPanel.tsx</span>
+        <p class="iv-body"><span class="iv-found">コードで判明 —</span> 招待はメールでのみ送信されます。<code>TeamPanel</code> は <code>team_members</code> を参照しますが、<code>invites</code> テーブルは完全に無視しています — 招待した側は、チームメイトが招待を承諾していないことに気づけず、再送する手段もありません。<strong>コラボレーション型</strong>のレビューツールにとって、一人だけのユーザーは離脱予備軍です。</p>
+        <div class="iv-impact"><span class="tag">インパクト</span>「招待2件が保留中 &middot; 再送」を表示することで、目に見えなかった招待の劣化を、見えて直せる状態に変えられます。</div>
+        <div class="iv-foot"><label class="resonate"><input type="checkbox" data-n="3"> これは響く</label></div>
+      </div>
+
+      <div class="iv" id="iv4">
+        <div class="iv-top">
+          <span class="iv-num">#4</span>
+          <h3>マイルストーンテーブルをダッシュボードのチェックリストにつなぐ</h3>
+          <div class="chips"><span class="effort m">M</span></div>
+        </div>
+        <span class="path">services/api/src/models/userMilestones.ts &middot; apps/web/src/dashboard/Dashboard.tsx</span>
+        <p class="iv-body"><span class="iv-found">コードで判明 —</span> バックエンドは <code>first_upload</code>、<code>first_comment</code>、<code>first_invite_accepted</code>、<code>first_approval</code> をすでに <code>user_milestones</code> に記録しています — しかし<strong>クライアント側のコードはこのテーブルを一切読み取っていません</strong>。今は分析用ダッシュボードのためだけに存在しています。「4ステップ中3つ完了」というチェックリストに必要な材料はすべて揃っています。</p>
+        <div class="iv-impact"><span class="tag">インパクト</span>チェックリストはアクティベーションを確実に高めます。トラッキングはすでに機能しているため、必要なのはエンドポイント1つとコンポーネント1つだけです。</div>
+        <div class="iv-foot"><label class="resonate"><input type="checkbox" data-n="4"> これは響く</label></div>
+      </div>
+
+      <div class="iv" id="iv5">
+        <div class="iv-top">
+          <span class="iv-num">#5</span>
+          <h3>初回コメントの瞬間を設計する</h3>
+          <div class="chips"><span class="effort m">M</span></div>
+        </div>
+        <span class="path">apps/web/src/review/CommentComposer.tsx &middot; apps/web/src/review/Timeline.tsx</span>
+        <p class="iv-body"><span class="iv-found">コードで判明 —</span> タイムスタンプ付きコメントはAcmeのコアループですが、その操作方法は見えにくいものになっています。タイムラインをクリックするとコンポーザーにタイムスタンプが入力されますが、それを教える仕組みは何もありません。<code>Timeline.tsx</code> には元の作者による <code>TODO: first-run hint?</code> というコメントが残っています。初回再生時にゴーストピンを追加し、「どこでもクリックしてこの瞬間にコメントできます」と示してみましょう。</p>
+        <div class="iv-impact"><span class="tag">インパクト</span>初回セッションでのコメント率がアクティベーション指標であるなら(実際そうあるべきです)、これはその指標に最も直接働くレバーです。</div>
+        <div class="iv-foot"><label class="resonate"><input type="checkbox" data-n="5"> これは響く</label></div>
+      </div>
+
+      <div class="iv" id="iv6">
+        <div class="iv-top">
+          <span class="iv-num">#6</span>
+          <h3>サイレントに失敗した初回アップロードを救済する</h3>
+          <div class="chips"><span class="effort m">M</span></div>
+        </div>
+        <span class="path">services/ingest/src/transcode/queue.ts</span>
+        <p class="iv-body"><span class="iv-found">コードで判明 —</span> トランスコードが失敗すると(未対応のコーデック、サイズが大きすぎるProRes、moovアトムの破損など)、ジョブは <code>failed</code> に移り、Sentryにログが送られますが、<strong>ユーザーには何も伝わりません</strong> — プロジェクトカードにはスピナーが永遠に表示され続けるだけです。フォールバックプリセットで再試行するコードパスは存在するものの、内部の管理者スクリプトからしか到達できません。</p>
+        <div class="iv-impact"><span class="tag">インパクト</span>初回アップロードが永遠にハングしたユーザーは、サポートに問い合わせるのではなく、そのまま離れていきます。自動リトライと正直なエラー通知メールがあれば、サイレントな離脱経路をサポート対応可能な経路に変えられます。</div>
+        <div class="iv-foot"><label class="resonate"><input type="checkbox" data-n="6"> これは響く</label></div>
+      </div>
+
+      <div class="iv" id="iv7">
+        <div class="iv-top">
+          <span class="iv-num">#7</span>
+          <h3>チームのための一緒に視聴する初回セッション</h3>
+          <div class="chips"><span class="effort l">L</span></div>
+        </div>
+        <span class="path">apps/web/src/review/PresenceProvider.tsx &middot; services/realtime/</span>
+        <p class="iv-body"><span class="iv-found">コードで判明 —</span> ライブプレゼンス機能はすでに完成しています — 再生位置の共有、ライブカーソル、「Mayaが視聴中」のバッジまで揃っていますが、これが機能するのは二人が<em>たまたま</em>同じレビューを同時に開いた場合だけです。その偶然を生み出す仕組みは何もありません。チームメイトが招待を承諾したタイミングで「一緒にレビューする」スケジュール提案を追加し、二人を同じセッションにディープリンクで誘導してみましょう。</p>
+        <div class="iv-impact"><span class="tag">インパクト</span>一度でもライブセッションを体験したチームは、単独ユーザーとは異なる継続率を示すと考えられます。これによって、マルチプレイヤーの瞬間を運任せではなく意図的なものにできます。</div>
+        <div class="iv-foot"><label class="resonate"><input type="checkbox" data-n="7"> これは響く</label></div>
+      </div>
+
+      <div class="iv" id="iv8">
+        <div class="iv-top">
+          <span class="iv-num">#8</span>
+          <h3>レビューワークフローのテンプレートを5つリリースする</h3>
+          <div class="chips"><span class="effort l">L</span></div>
+        </div>
+        <span class="path">packages/workflows/src/definitions/</span>
+        <p class="iv-body"><span class="iv-found">コードで判明 —</span> 承認ワークフロー(ラフカット &rarr; クライアントレビュー &rarr; 最終承認)は完全にカスタマイズ可能ですが、<strong>完全に空白の状態</strong>から始まります。definitions ディレクトリにはテスト用の <code>__fixtures__</code> しか入っていません。<code>WorkflowEditor.tsx</code> 内のコメントから判断すると、パワーユーザーは共有のNotionドキュメントをコピーして自分用に設定しているようです。方向性を明確にしたテンプレートを5つリリースしましょう。代理店納品、YouTube配信パイプライン、クライアント承認、社内QA、ローカライズ工程です。</p>
+        <div class="iv-impact"><span class="tag">インパクト</span>テンプレートは「この抽象概念を設定する」を「自分の仕事を選ぶ」に変換します — ワークフロー系ツールにおける「空白キャンバス離脱」に対する定番の対処法です。</div>
+        <div class="iv-foot"><label class="resonate"><input type="checkbox" data-n="8"> これは響く</label></div>
+      </div>
+
+      <div class="iv" id="iv9">
+        <div class="iv-top">
+          <span class="iv-num">#9</span>
+          <h3>内蔵のクイック画面・カメラ録画機能</h3>
+          <div class="chips"><span class="effort xl">XL</span></div>
+        </div>
+        <span class="path">新しい機能領域 &middot; services/ingest はすでにチャンク分割されたwebmアップロードに対応済み</span>
+        <p class="iv-body"><span class="iv-found">コードで判明 —</span> 現在、Acmeのオンボーディングには厳格な外部依存があります。<strong>プロダクトが役立つようになる前に、完成した動画が必要</strong>なのです。しかし <code>services/ingest</code> はすでに(モバイルアプリ向けに作られた)チャンク分割されたwebmアップロードに対応しているため、MediaRecorderを使った「画面を録画してフィードバックをもらう」フローには、パイプライン側の作業は不要です — 必要なのは「あくまで」キャプチャUIだけです。これにより、トライアルが停滞する最大の理由 — レビューするものがまだない、という状態 — を取り除けます。</p>
+        <div class="iv-impact"><span class="tag">インパクト</span>アクティベーションできる人の範囲自体が変わります。エディターを持たないデザイナーやPMも、自分で最初のレビュー対象を作成できるようになります。大きな開発であり、影響範囲も大きい選択肢です。</div>
+        <div class="iv-foot"><label class="resonate"><input type="checkbox" data-n="9"> これは響く</label></div>
+      </div>
+
+      <div class="iv" id="iv10">
+        <div class="iv-top">
+          <span class="iv-num">#10</span>
+          <h3>クライアント向けの本格的なレビューポータル</h3>
+          <div class="chips"><span class="effort xl">XL</span></div>
+        </div>
+        <span class="path">services/auth/src/guestTokens.ts &middot; apps/web/src/share/</span>
+        <p class="iv-body"><span class="iv-found">コードで判明 —</span> ゲスト向けの共有リンクは存在しますが、意図的に機能が制限されています。トークンは24時間で失効し、ゲストはコメントできず、2年前の <code>// TODO(sasha): revisit guest perms after launch</code> というコメントが残っています。離脱するユーザーの多くは、その<em>クライアント</em>がアカウント登録を拒んだケースです。ゲストを本格的な存在として扱いましょう — 永続的なポータル、名前付きコメント、アカウント不要。そうすれば、社外向けのレビューはすべてリテンションのループ(そして獲得のループ)になります。</p>
+        <div class="iv-impact"><span class="tag">インパクト</span>構造的な原因そのものに対処します。Acmeの価値は、アカウントを作りたがらない人々に依存しているのです。認証、課金、不正利用対策にまで影響する、四半期がかりの賭けです。</div>
+        <div class="iv-foot"><label class="resonate"><input type="checkbox" data-n="10"> これは響く</label></div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>「<a href="index.html">知らないことを知る</a>」の一部 — ブログ記事の関連サンプルです。</footer>
+</div>
+
+<div class="replybar">
+  <div class="replybar-inner">
+    <span class="rb-count"><b id="rbNum">0</b> 件が該当</span>
+    <span class="rb-reply" id="rbReply">響く介入策にチェックを入れてください — ここに返信が組み立てられます。</span>
+    <button class="rb-copy" id="rbCopy" type="button" disabled>返信をコピー</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var PROMPT = "ざっくりした課題はこうです。Acmeのユーザーがオンボーディング後に離脱してしまいます。コードベースを調べて、介入できそうな場所を10個、コストが低いものから野心的なものまでブレインストーミングしてください。どれが響くか後で伝えます。";
+
+  function copyText(text, btn, label, doneLabel) {
+    function done() {
+      btn.classList.add('copied');
+      btn.textContent = doneLabel;
+      setTimeout(function () {
+        btn.classList.remove('copied');
+        btn.textContent = label;
+      }, 1600);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallback(); });
+    } else { fallback(); }
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+      done();
+    }
+  }
+
+  var copyPromptBtn = document.getElementById('copyPrompt');
+  copyPromptBtn.addEventListener('click', function () {
+    copyText(PROMPT, copyPromptBtn, 'プロンプトをコピー', 'コピーしました');
+  });
+
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('label.resonate input'));
+  var dots = {};
+  Array.prototype.forEach.call(document.querySelectorAll('.spec-dot'), function (d) {
+    dots[d.getAttribute('data-n')] = d;
+    d.addEventListener('click', function () {
+      var card = document.getElementById('iv' + d.getAttribute('data-n'));
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  });
+
+  var rbNum = document.getElementById('rbNum');
+  var rbReply = document.getElementById('rbReply');
+  var rbCopy = document.getElementById('rbCopy');
+  var currentReply = '';
+
+  function update() {
+    var picked = boxes
+      .filter(function (b) { return b.checked; })
+      .map(function (b) { return parseInt(b.getAttribute('data-n'), 10); })
+      .sort(function (a, b) { return a - b; });
+
+    boxes.forEach(function (b) {
+      var n = b.getAttribute('data-n');
+      var card = document.getElementById('iv' + n);
+      if (card) card.classList.toggle('checked', b.checked);
+      if (dots[n]) dots[n].classList.toggle('on', b.checked);
+    });
+
+    rbNum.textContent = picked.length;
+    if (picked.length === 0) {
+      currentReply = '';
+      rbReply.textContent = '響く介入策にチェックを入れてください — ここに返信が組み立てられます。';
+      rbReply.classList.remove('live');
+      rbCopy.disabled = true;
+    } else {
+      var list = picked.map(function (n) { return '#' + n; }).join(', ');
+      currentReply = '響くもの: ' + list + ' — まずは#' + picked[0];
+      rbReply.textContent = '“' + currentReply + '”';
+      rbReply.classList.add('live');
+      rbCopy.disabled = false;
+    }
+  }
+
+  boxes.forEach(function (b) { b.addEventListener('change', update); });
+  rbCopy.addEventListener('click', function () {
+    if (currentReply) copyText(currentReply, rbCopy, '返信をコピー', 'コピーしました');
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>

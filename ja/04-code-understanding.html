@@ -1,0 +1,492 @@
+<!-- Copyright 2026 Anthropic PBC · SPDX-License-Identifier: Apache-2.0 -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>acme/web における認証の流れ</title>
+<style>
+  :root {
+    --ivory: #FAF9F5;
+    --slate: #141413;
+    --clay: #D97757;
+    --oat: #E3DACC;
+    --olive: #788C5D;
+    --rust: #B04A3F;
+    --gray-150: #F0EEE6;
+    --gray-300: #D1CFC5;
+    --gray-500: #87867F;
+    --gray-700: #3D3D3A;
+    --serif: ui-serif, Georgia, 'Times New Roman', serif;
+    --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --mono: ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--ivory);
+    color: var(--gray-700);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.65;
+    padding: 48px 24px 80px;
+  }
+
+  .page {
+    max-width: 1080px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 40px;
+  }
+
+  @media (max-width: 960px) {
+    .page { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- Header ---------- */
+  header {
+    grid-column: 1 / -1;
+    margin-bottom: 8px;
+  }
+
+  .repo-line {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--gray-500);
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 32px;
+    line-height: 1.25;
+    color: var(--slate);
+    margin-bottom: 16px;
+  }
+
+  .summary {
+    max-width: 760px;
+    font-size: 15.5px;
+  }
+  .summary code { font-family: var(--mono); font-size: 13px; }
+
+  h2 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 22px;
+    color: var(--slate);
+    margin: 36px 0 16px;
+  }
+
+  /* ---------- Diagram ---------- */
+  .diagram-panel {
+    border: 1.5px solid var(--gray-300);
+    border-radius: 12px;
+    background: #fff;
+    padding: 20px;
+    overflow-x: auto;
+  }
+
+  svg.flow { display: block; max-width: 100%; }
+  .flow text {
+    font-family: var(--mono);
+    font-size: 12px;
+    fill: var(--slate);
+  }
+  .flow .sub { font-size: 10px; fill: var(--gray-500); }
+  .flow .box { fill: #fff; stroke: var(--gray-300); stroke-width: 1.5; }
+  .flow .box.hot { fill: rgba(217,119,87,0.10); stroke: var(--clay); }
+  .flow .arrow { stroke: var(--gray-500); stroke-width: 1.5; fill: none; }
+
+  /* ---------- Walkthrough ---------- */
+  .step {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 18px;
+    padding: 20px 0;
+    border-bottom: 1.5px solid var(--gray-150);
+  }
+  .step:last-of-type { border-bottom: none; }
+
+  .badge {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--oat);
+    border: 1.5px solid var(--gray-300);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-weight: 600;
+    color: var(--slate);
+    font-size: 14px;
+  }
+  .step.hot .badge {
+    background: rgba(217,119,87,0.14);
+    border-color: var(--clay);
+    color: var(--clay);
+  }
+
+  .step-loc {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--slate);
+    margin-bottom: 6px;
+  }
+  .step-loc .range { color: var(--gray-500); }
+
+  .step-body p { margin-bottom: 10px; }
+
+  details.snippet { margin-top: 6px; }
+  details.snippet summary {
+    list-style: none;
+    cursor: pointer;
+    font-size: 12.5px;
+    color: var(--gray-500);
+    font-family: var(--mono);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    user-select: none;
+  }
+  details.snippet summary::-webkit-details-marker { display: none; }
+  details.snippet summary::before {
+    content: "▸";
+    font-size: 10px;
+    transition: transform 0.15s ease;
+  }
+  details.snippet[open] summary::before { transform: rotate(90deg); }
+
+  pre.code {
+    background: var(--slate);
+    color: #E8E6DC;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.7;
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin-top: 10px;
+  }
+  pre.code .dim { color: var(--gray-500); }
+  pre.code .kw  { color: #C9B98A; }
+  pre.code .str { color: #A8BC8C; }
+
+  /* ---------- Sidebar ---------- */
+  aside {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+  }
+
+  .panel {
+    border: 1.5px solid var(--gray-300);
+    border-radius: 12px;
+    background: #fff;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+  }
+
+  .panel h3 {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gray-500);
+    margin-bottom: 12px;
+  }
+
+  .key-files { list-style: none; padding: 0; }
+  .key-files li { margin-bottom: 12px; }
+  .key-files li:last-child { margin-bottom: 0; }
+  .key-files .path {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--slate);
+    display: block;
+    margin-bottom: 2px;
+    word-break: break-all;
+  }
+  .key-files .desc {
+    font-size: 12.5px;
+    color: var(--gray-500);
+    line-height: 1.45;
+  }
+
+  .gotchas {
+    border: 1.5px solid var(--clay);
+    border-radius: 12px;
+    background: rgba(217,119,87,0.06);
+    padding: 18px 20px;
+  }
+  .gotchas h3 {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--clay);
+    margin-bottom: 10px;
+  }
+  .gotchas ul { list-style: none; padding: 0; }
+  .gotchas li {
+    position: relative;
+    padding-left: 16px;
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+  .gotchas li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 8px;
+    width: 5px; height: 5px;
+    background: var(--clay);
+    border-radius: 2px;
+  }
+  .gotchas code { font-family: var(--mono); font-size: 11.5px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="repo-line">acme/web ・ アーキテクチャノート</div>
+    <h1>コードベース内における認証の流れ</h1>
+    <p class="summary">
+      Acmeはクッキーベースのセッションを採用しており、ブラウザがベアラートークンを直接保持することはありません。認証が必要なリクエストはすべて<code>/api/*</code>にアクセスし、単一の<code>verifyToken()</code>ミドルウェアを通過して、下流のハンドラーが<code>req.ctx</code>から読み取る<code>Session</code>行に解決されます。このミドルウェアだけがセッションストアとやり取りし、そのセッションストアだけが<code>sessions</code>テーブルとやり取りします——つまり、検討すべき信頼境界はただ一つしかありません。
+    </p>
+  </header>
+
+  <main>
+    <h2 style="margin-top:0">リクエストパス</h2>
+    <div class="diagram-panel">
+      <svg class="flow" viewBox="0 0 720 280" width="720" height="280" role="img" aria-label="認証フロー図">
+        <defs>
+          <marker id="arrowHead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#87867F"></path>
+          </marker>
+        </defs>
+
+        <!-- Row 1 -->
+        <g>
+          <rect class="box" x="30"  y="40" width="150" height="64" rx="10"></rect>
+          <text x="105" y="68" text-anchor="middle">ブラウザ</text>
+          <text class="sub" x="105" y="84" text-anchor="middle">acme.app</text>
+        </g>
+        <g>
+          <rect class="box" x="245" y="40" width="150" height="64" rx="10"></rect>
+          <text x="320" y="68" text-anchor="middle">/api/session</text>
+          <text class="sub" x="320" y="84" text-anchor="middle">ルートハンドラー</text>
+        </g>
+        <g>
+          <rect class="box hot" x="460" y="40" width="180" height="64" rx="10"></rect>
+          <text x="550" y="68" text-anchor="middle">verifyToken()</text>
+          <text class="sub" x="550" y="84" text-anchor="middle">middleware/auth.ts</text>
+        </g>
+
+        <!-- Row 2 -->
+        <g>
+          <rect class="box" x="460" y="170" width="180" height="64" rx="10"></rect>
+          <text x="550" y="198" text-anchor="middle">SessionStore</text>
+          <text class="sub" x="550" y="214" text-anchor="middle">lib/sessionStore.ts</text>
+        </g>
+        <g>
+          <rect class="box" x="245" y="170" width="150" height="64" rx="10"></rect>
+          <text x="320" y="198" text-anchor="middle">Postgres</text>
+          <text class="sub" x="320" y="214" text-anchor="middle">sessionsテーブル</text>
+        </g>
+
+        <!-- Arrows -->
+        <line class="arrow" x1="180" y1="72" x2="245" y2="72" marker-end="url(#arrowHead)"></line>
+        <line class="arrow" x1="395" y1="72" x2="460" y2="72" marker-end="url(#arrowHead)"></line>
+        <line class="arrow" x1="550" y1="104" x2="550" y2="170" marker-end="url(#arrowHead)"></line>
+        <line class="arrow" x1="460" y1="202" x2="395" y2="202" marker-end="url(#arrowHead)"></line>
+
+        <text class="sub" x="212" y="62" text-anchor="middle">クッキー</text>
+        <text class="sub" x="560" y="140" text-anchor="start">ルックアップ</text>
+      </svg>
+    </div>
+
+    <h2>コールスタックの解説</h2>
+
+    <!-- Step 1 -->
+    <div class="step">
+      <div class="badge">1</div>
+      <div class="step-body">
+        <div class="step-loc">src/app/providers/AuthProvider.tsx<span class="range"> :22-48</span></div>
+        <p>マウント時に、Reactプロバイダーは<code style="font-family:var(--mono);font-size:12.5px">credentials: 'include'</code>を指定して<code style="font-family:var(--mono);font-size:12.5px">GET /api/session</code>を発行し、<code style="font-family:var(--mono);font-size:12.5px">fw_sid</code>クッキーが一緒に送信されるようにします。レスポンスは<code style="font-family:var(--mono);font-size:12.5px">currentUser</code>をコンテキストにハイドレートするか、<code style="font-family:var(--mono);font-size:12.5px">null</code>のままにします。後者の場合、ルーターはそれを「サインイン画面を表示する」ものとして扱います。</p>
+        <details class="snippet">
+          <summary>ソースを表示</summary>
+<pre class="code"><span class="dim">// src/app/providers/AuthProvider.tsx</span>
+<span class="kw">export function</span> AuthProvider({ children }: Props) {
+  <span class="kw">const</span> [user, setUser] = useState&lt;User | <span class="kw">null</span>&gt;(<span class="kw">null</span>);
+
+  useEffect(() =&gt; {
+    fetch(<span class="str">'/api/session'</span>, { credentials: <span class="str">'include'</span> })
+      .then(r =&gt; r.ok ? r.json() : <span class="kw">null</span>)
+      .then(setUser);
+  }, []);
+
+  <span class="kw">return</span> &lt;AuthCtx.Provider value={{ user }}&gt;{children}&lt;/AuthCtx.Provider&gt;;
+}</pre>
+        </details>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="step">
+      <div class="badge">2</div>
+      <div class="step-body">
+        <div class="step-loc">src/server/routes/session.ts<span class="range"> :9-27</span></div>
+        <p>このルート自体はシンプルで、ミドルウェアが設定した<code style="font-family:var(--mono);font-size:12.5px">req.ctx.session</code>をそのまま返すだけです。ミドルウェアが401で処理を打ち切った場合、このハンドラーは実行されません——つまり、ここに認証ロジックが重複することはありません。</p>
+        <details class="snippet">
+          <summary>ソースを表示</summary>
+<pre class="code"><span class="dim">// src/server/routes/session.ts</span>
+router.get(<span class="str">'/session'</span>, verifyToken, (req, res) =&gt; {
+  <span class="kw">const</span> { session } = req.ctx;
+  res.json({
+    id:    session.userId,
+    email: session.email,
+    role:  session.role,
+    exp:   session.expiresAt,
+  });
+});</pre>
+        </details>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="step hot">
+      <div class="badge">3</div>
+      <div class="step-body">
+        <div class="step-loc">src/middleware/auth.ts<span class="range"> :14-31</span></div>
+        <p>ここが信頼境界です。<code style="font-family:var(--mono);font-size:12.5px">verifyToken</code>は署名付きの<code style="font-family:var(--mono);font-size:12.5px">fw_sid</code>クッキーを読み取り、<code style="font-family:var(--mono);font-size:12.5px">SessionStore</code>にその解決を依頼し、<code style="font-family:var(--mono);font-size:12.5px">req.ctx.session</code>を設定するか401を返します。アプリ内の保護されたルートはすべてこの関数の背後にマウントされているため、その挙動を変更すると認証全体に影響します。</p>
+        <details class="snippet" open>
+          <summary>ソースを表示</summary>
+<pre class="code"><span class="dim">// src/middleware/auth.ts</span>
+<span class="kw">export async function</span> verifyToken(req, res, next) {
+  <span class="kw">const</span> raw = req.signedCookies[<span class="str">'fw_sid'</span>];
+  <span class="kw">if</span> (!raw) <span class="kw">return</span> res.status(401).end();
+
+  <span class="kw">const</span> session = <span class="kw">await</span> SessionStore.get(raw);
+  <span class="kw">if</span> (!session || session.expiresAt &lt; Date.now()) {
+    <span class="kw">return</span> res.status(401).end();
+  }
+
+  req.ctx = { session };
+  next();
+}</pre>
+        </details>
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="step">
+      <div class="badge">4</div>
+      <div class="step-body">
+        <div class="step-loc">src/lib/sessionStore.ts<span class="range"> :8-52</span></div>
+        <p><code style="font-family:var(--mono);font-size:12.5px">SessionStore</code>は小さなリードスルーキャッシュです。まずプロセス内のLRUを確認し、なければPostgresにフォールバックします。書き込み(<code style="font-family:var(--mono);font-size:12.5px">create</code>、<code style="font-family:var(--mono);font-size:12.5px">revoke</code>)は常にDBへ直接行われ、キャッシュエントリを無効化するため、他のワーカーが古いセッションを返すことはありません。</p>
+        <details class="snippet">
+          <summary>ソースを表示</summary>
+<pre class="code"><span class="dim">// src/lib/sessionStore.ts</span>
+<span class="kw">const</span> cache = <span class="kw">new</span> LRU&lt;string, Session&gt;({ max: 5000, ttl: 60_000 });
+
+<span class="kw">export const</span> SessionStore = {
+  <span class="kw">async</span> get(id: string) {
+    <span class="kw">const</span> hit = cache.get(id);
+    <span class="kw">if</span> (hit) <span class="kw">return</span> hit;
+    <span class="kw">const</span> row = <span class="kw">await</span> db.one(SELECT_SESSION, [id]);
+    <span class="kw">if</span> (row) cache.set(id, row);
+    <span class="kw">return</span> row ?? <span class="kw">null</span>;
+  },
+  <span class="dim">/* create, revoke, touch ... */</span>
+};</pre>
+        </details>
+      </div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="step">
+      <div class="badge">5</div>
+      <div class="step-body">
+        <div class="step-loc">db/migrations/004_sessions.sql<span class="range"> :1-18</span></div>
+        <p><code style="font-family:var(--mono);font-size:12.5px">sessions</code>テーブルはランダムな32バイトのid(クッキーの値)をキーとしており、「どの端末からでもサインアウト」を実現するために<code style="font-family:var(--mono);font-size:12.5px">user_id</code>へのカバリングインデックスを持っています。有効期限はここ(<code style="font-family:var(--mono);font-size:12.5px">expires_at</code>)と、多層防御としてミドルウェアの両方で強制されます。</p>
+        <details class="snippet">
+          <summary>ソースを表示</summary>
+<pre class="code"><span class="dim">-- db/migrations/004_sessions.sql</span>
+<span class="kw">create table</span> sessions (
+  id          <span class="kw">text primary key</span>,
+  user_id     <span class="kw">uuid not null references</span> users(id),
+  created_at  <span class="kw">timestamptz default</span> now(),
+  expires_at  <span class="kw">timestamptz not null</span>,
+  ip          <span class="kw">inet</span>,
+  user_agent  <span class="kw">text</span>
+);
+<span class="kw">create index</span> sessions_user_id_idx <span class="kw">on</span> sessions(user_id);</pre>
+        </details>
+      </div>
+    </div>
+  </main>
+
+  <aside>
+    <div class="panel">
+      <h3>主要ファイル</h3>
+      <ul class="key-files">
+        <li>
+          <span class="path">src/middleware/auth.ts</span>
+          <span class="desc">リクエスト認証の唯一のエントリーポイント。</span>
+        </li>
+        <li>
+          <span class="path">src/lib/sessionStore.ts</span>
+          <span class="desc">LRU + Postgresによるセッション検索。DBを呼び出すのはここだけ。</span>
+        </li>
+        <li>
+          <span class="path">src/server/routes/session.ts</span>
+          <span class="desc">現在のセッションをクライアントに返す。</span>
+        </li>
+        <li>
+          <span class="path">src/server/routes/login.ts</span>
+          <span class="desc">SessionStore.createを介して認証情報をクッキーと交換する。</span>
+        </li>
+        <li>
+          <span class="path">src/app/providers/AuthProvider.tsx</span>
+          <span class="desc">サーバーセッションを反映するクライアント側のコンテキスト。</span>
+        </li>
+        <li>
+          <span class="path">db/migrations/004_sessions.sql</span>
+          <span class="desc">sessionsテーブルとインデックスのスキーマ。</span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="gotchas">
+      <h3>注意点</h3>
+      <ul>
+        <li><code>SessionStore</code>内のLRUはプロセスごとに存在します。セッションを無効化してもローカルキャッシュがクリアされるだけです——他のワーカーはTTLが切れるまで最大60秒間、そのセッションを返し続ける可能性があります。</li>
+        <li><code>verifyToken</code>は<code>expiresAt</code>を<code>Date.now()</code>と比較していますが、カラムの型は<code>timestamptz</code>です。ドライバーが<code>Date</code>を返すため比較は機能しますが、チェックを調整せずに生の文字列へリファクタリングしないでください。</li>
+      </ul>
+    </div>
+  </aside>
+
+</div>
+
+<script>
+  // Keep at most one snippet open at a time so the walkthrough stays scannable.
+  var snippets = document.querySelectorAll('details.snippet');
+  snippets.forEach(function (d) {
+    d.addEventListener('toggle', function () {
+      if (!d.open) return;
+      snippets.forEach(function (other) {
+        if (other !== d) other.open = false;
+      });
+    });
+  });
+</script>
+</body>
+</html>

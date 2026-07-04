@@ -1,0 +1,704 @@
+<!-- Copyright 2026 Anthropic PBC · SPDX-License-Identifier: Apache-2.0 -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>実装計画 — タスクカードのコメントスレッド</title>
+  <style>
+    :root {
+      --ivory:    #FAF9F5;
+      --slate:    #141413;
+      --clay:     #D97757;
+      --oat:      #E3DACC;
+      --olive:    #788C5D;
+      --gray-150: #F0EEE6;
+      --gray-300: #D1CFC5;
+      --gray-500: #87867F;
+      --gray-700: #3D3D3A;
+      --white:    #FFFFFF;
+
+      --serif: ui-serif, Georgia, 'Times New Roman', serif;
+      --sans:  system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --mono:  ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--ivory);
+      color: var(--gray-700);
+      line-height: 1.55;
+      padding: 56px 32px 120px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page { max-width: 1120px; margin: 0 auto; }
+
+    /* ---------- header ---------- */
+
+    header.page-head { margin-bottom: 48px; max-width: 820px; }
+
+    .eyebrow {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gray-500);
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 38px;
+      line-height: 1.15;
+      color: var(--slate);
+      margin-bottom: 18px;
+      letter-spacing: -0.01em;
+    }
+
+    .prompt-box {
+      background: var(--gray-150);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      padding: 16px 20px;
+      font-size: 14.5px;
+      color: var(--gray-700);
+    }
+    .prompt-box .label {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-500);
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    /* ---------- section chrome ---------- */
+
+    section { margin-bottom: 64px; }
+
+    .sec-head {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      margin-bottom: 8px;
+    }
+    .sec-head .num {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: var(--oat);
+      color: var(--slate);
+      padding: 3px 9px;
+      border-radius: 8px;
+    }
+    .sec-head h2 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 26px;
+      color: var(--slate);
+      letter-spacing: -0.01em;
+    }
+    .sec-intro {
+      font-size: 14.5px;
+      color: var(--gray-500);
+      max-width: 720px;
+      margin-bottom: 28px;
+    }
+
+    /* ---------- summary strip ---------- */
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 64px;
+    }
+    @media (max-width: 900px) { .summary { grid-template-columns: repeat(2, 1fr); } }
+    .summary .cell {
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      padding: 18px 20px;
+    }
+    .summary .k {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-500);
+      margin-bottom: 6px;
+    }
+    .summary .v {
+      font-size: 17px;
+      color: var(--slate);
+      font-weight: 600;
+    }
+    .summary .v.accent { color: var(--clay); }
+
+    /* ---------- milestone timeline ---------- */
+
+    .milestones { display: flex; flex-direction: column; gap: 0; }
+    .milestone {
+      display: grid;
+      grid-template-columns: 120px 28px 1fr;
+      gap: 0 18px;
+      position: relative;
+    }
+    .milestone .when {
+      text-align: right;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--gray-500);
+      padding-top: 4px;
+    }
+    .milestone .dot-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .milestone .dot {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--white);
+      border: 3px solid var(--clay);
+      margin-top: 4px;
+      flex-shrink: 0;
+    }
+    .milestone .dot.done { background: var(--olive); border-color: var(--olive); }
+    .milestone .line {
+      width: 2px;
+      flex: 1;
+      background: var(--gray-300);
+      margin: 4px 0;
+    }
+    .milestone:last-child .line { display: none; }
+    .milestone .body { padding-bottom: 36px; }
+    .milestone .body h3 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 19px;
+      color: var(--slate);
+      margin-bottom: 4px;
+    }
+    .milestone .body p { font-size: 14px; color: var(--gray-500); margin-bottom: 10px; max-width: 620px; }
+    .milestone .tags { display: flex; gap: 8px; flex-wrap: wrap; }
+    .milestone .tag {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      background: var(--gray-150);
+      border: 1px solid var(--gray-300);
+      border-radius: 6px;
+      padding: 3px 8px;
+      color: var(--gray-700);
+    }
+
+    /* ---------- data flow diagram ---------- */
+
+    .diagram {
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      padding: 28px;
+      overflow-x: auto;
+    }
+    .diagram svg { display: block; min-width: 760px; }
+    .diagram text { font-family: var(--mono); }
+    .caption { font-size: 13px; color: var(--gray-500); margin-top: 12px; }
+
+    /* ---------- mockups ---------- */
+
+    .mocks {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+    }
+    @media (max-width: 900px) { .mocks { grid-template-columns: 1fr; } }
+    .mock {
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .mock .mock-label {
+      padding: 12px 18px;
+      border-bottom: 1.5px solid var(--gray-300);
+      font-family: var(--mono);
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-500);
+      background: var(--gray-150);
+    }
+    .mock .mock-body { padding: 22px; }
+
+    /* task card mock */
+    .card-mock {
+      border: 1.5px solid var(--gray-300);
+      border-radius: 10px;
+      padding: 16px;
+      background: var(--ivory);
+    }
+    .card-mock .cm-title { font-weight: 600; font-size: 15px; color: var(--slate); margin-bottom: 4px; }
+    .card-mock .cm-meta { font-size: 12px; color: var(--gray-500); margin-bottom: 14px; }
+    .card-mock .cm-divider { border-top: 1px dashed var(--gray-300); margin: 14px 0; }
+    .thread { display: flex; flex-direction: column; gap: 12px; }
+    .comment { display: flex; gap: 10px; }
+    .comment .avatar {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: var(--oat);
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 600; color: var(--slate);
+    }
+    .comment .avatar.alt { background: var(--olive); color: var(--white); }
+    .comment .bubble { flex: 1; }
+    .comment .author { font-size: 12px; font-weight: 600; color: var(--slate); }
+    .comment .author .time { font-weight: 400; color: var(--gray-500); margin-left: 6px; }
+    .comment .text { font-size: 13px; color: var(--gray-700); margin-top: 2px; }
+    .comment .reply-link { font-size: 11.5px; color: var(--clay); margin-top: 4px; cursor: default; }
+    .comment.nested { margin-left: 36px; }
+    .composer {
+      display: flex; gap: 10px; align-items: center;
+      margin-top: 6px;
+    }
+    .composer .field {
+      flex: 1;
+      border: 1.5px solid var(--gray-300);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: var(--gray-500);
+      background: var(--white);
+    }
+    .composer .send {
+      background: var(--clay);
+      color: var(--white);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    /* sidebar digest mock */
+    .digest { display: flex; flex-direction: column; gap: 10px; }
+    .digest .row {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 10px 12px;
+      background: var(--ivory);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 8px;
+    }
+    .digest .row.unread { border-left: 3px solid var(--clay); }
+    .digest .mini-av {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--oat);
+      flex-shrink: 0;
+      font-size: 10px; font-weight: 600; color: var(--slate);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .digest .txt { font-size: 12.5px; color: var(--gray-700); line-height: 1.45; }
+    .digest .txt strong { color: var(--slate); }
+    .digest .txt .on { color: var(--gray-500); }
+
+    /* ---------- code panel ---------- */
+
+    .code-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+    @media (max-width: 980px) { .code-grid { grid-template-columns: 1fr; } }
+    .code-block { display: flex; flex-direction: column; gap: 10px; }
+    .code-block .file-label {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--gray-500);
+    }
+    .code {
+      background: var(--slate);
+      border-radius: 12px;
+      padding: 18px 20px;
+      overflow-x: auto;
+      flex: 1;
+    }
+    .code pre {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: #E8E6DE;
+      white-space: pre;
+    }
+    .code .kw  { color: var(--clay); }
+    .code .str { color: var(--olive); }
+    .code .cm  { color: var(--gray-500); }
+    .code .fn  { color: #C9B98A; }
+
+    /* ---------- risk table ---------- */
+
+    .risks {
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--white);
+    }
+    .risks .row {
+      display: grid;
+      grid-template-columns: 1.6fr 90px 1.6fr;
+      gap: 0;
+    }
+    @media (max-width: 780px) { .risks .row { grid-template-columns: 1fr; } }
+    .risks .row + .row { border-top: 1.5px solid var(--gray-300); }
+    .risks .cell { padding: 14px 18px; font-size: 13.5px; }
+    .risks .cell + .cell { border-left: 1.5px solid var(--gray-300); }
+    @media (max-width: 780px) { .risks .cell + .cell { border-left: none; border-top: 1px dashed var(--gray-300); } }
+    .risks .head { background: var(--gray-150); font-weight: 600; color: var(--slate); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .sev {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+    .sev.high { background: #F3D9CC; color: #8A3B1E; }
+    .sev.med  { background: var(--oat); color: var(--slate); }
+    .sev.low  { background: #E4E9DC; color: #4B5C39; }
+
+    /* ---------- open questions ---------- */
+
+    .open-q { display: flex; flex-direction: column; gap: 14px; max-width: 820px; }
+    .q {
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-left: 4px solid var(--clay);
+      border-radius: 10px;
+      padding: 16px 20px;
+    }
+    .q .qt { font-weight: 600; font-size: 15px; color: var(--slate); margin-bottom: 4px; }
+    .q .qd { font-size: 13.5px; color: var(--gray-500); }
+    .q .owner {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: var(--gray-500);
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <header class="page-head">
+      <div class="eyebrow">実装計画・Acme ウェブクライアント</div>
+      <h1>タスクカードのコメントスレッド</h1>
+      <div class="prompt-box">
+        <span class="label">プロンプト</span>
+        タスクカードにスレッド形式のコメント機能を追加するための、詳細な実装計画を作成してください。
+        モックアップ、クライアントから永続化層までのデータフロー、
+        私が書く必要がある主要なコード、そしてリスク表を含めてください。
+        スマートフォンでもさっと目を通しやすい構成にしてください——このドキュメントは
+        そのまま実装担当者に渡す予定です。
+      </div>
+    </header>
+
+    <!-- ============================================================= -->
+
+    <div class="summary">
+      <div class="cell"><div class="k">工数</div><div class="v accent">~2週間</div></div>
+      <div class="cell"><div class="k">影響範囲</div><div class="v">3パッケージ</div></div>
+      <div class="cell"><div class="k">新規テーブル</div><div class="v">2</div></div>
+      <div class="cell"><div class="k">フィーチャーフラグ</div><div class="v">task_comments_v1</div></div>
+    </div>
+
+    <!-- ============================================================= -->
+
+    <section>
+      <div class="sec-head"><span class="num">01</span><h2>マイルストーン</h2></div>
+      <p class="sec-intro">4つのスライスに分けてリリースします。各スライスは独立してレビュー可能で、いずれもフラグの内側にあります。スライス&nbsp;4までユーザーには何も見えません。</p>
+
+      <div class="milestones">
+        <div class="milestone">
+          <div class="when">第1週&nbsp;・月〜火</div>
+          <div class="dot-col"><span class="dot done"></span><span class="line"></span></div>
+          <div class="body">
+            <h3>スキーマとAPI契約</h3>
+            <p>新規の<code>comments</code>テーブルと<code>comment_reads</code>テーブル、マイグレーション、tRPCルーターのスタブ。UIはなし。他の変更を取り込む前に、まず契約のレビューを行う。</p>
+            <div class="tags"><span class="tag">packages/db</span><span class="tag">packages/api</span><span class="tag">migration 0042</span></div>
+          </div>
+        </div>
+
+        <div class="milestone">
+          <div class="when">第1週&nbsp;・水〜金</div>
+          <div class="dot-col"><span class="dot"></span><span class="line"></span></div>
+          <div class="body">
+            <h3>スレッドコンポーネントとコンポーザー</h3>
+            <p>フィクスチャから静的にレンダリングされた<code>&lt;CommentThread&gt;</code>。送信時に楽観的挿入を行い、失敗時はロールバック、ネストは1階層のみ。</p>
+            <div class="tags"><span class="tag">apps/web</span><span class="tag">storybook</span></div>
+          </div>
+        </div>
+
+        <div class="milestone">
+          <div class="when">第2週&nbsp;・月〜水</div>
+          <div class="dot-col"><span class="dot"></span><span class="line"></span></div>
+          <div class="body">
+            <h3>リアルタイムファンアウトと未読状態</h3>
+            <p>開いているカードをそのコメントチャンネルに購読させる。ユーザーごとの既読カーソルを追跡し、サイドバーが2度目のクエリなしで未読件数を表示できるようにする。</p>
+            <div class="tags"><span class="tag">packages/realtime</span><span class="tag">apps/web</span></div>
+          </div>
+        </div>
+
+        <div class="milestone">
+          <div class="when">第2週&nbsp;・木〜金</div>
+          <div class="dot-col"><span class="dot"></span><span class="line"></span></div>
+          <div class="body">
+            <h3>通知、フラグのランプアップ、ドキュメント</h3>
+            <p>メンション検出→通知レコードの作成、メールダイジェストへのフォールバック、<code>task_comments_v1</code>を社内向けにランプし、その後3日間で10% → 100%まで展開する。</p>
+            <div class="tags"><span class="tag">packages/notify</span><span class="tag">growthbook</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+
+    <section>
+      <div class="sec-head"><span class="num">02</span><h2>データフロー</h2></div>
+      <p class="sec-intro">左側は楽観的な書き込みパス、右側はファンアウトです。既読カーソルの更新はfire-and-forget方式で行われ、スレッドの描画をブロックすることはありません。</p>
+
+      <div class="diagram">
+        <svg viewBox="0 0 860 340" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#87867F"/>
+            </marker>
+            <marker id="arrowClay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#D97757"/>
+            </marker>
+          </defs>
+
+          <!-- boxes -->
+          <g font-size="12" fill="#141413">
+            <rect x="20"  y="20"  width="180" height="54" rx="10" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+            <text x="110" y="43" text-anchor="middle" font-weight="600">&lt;CommentComposer&gt;</text>
+            <text x="110" y="60" text-anchor="middle" fill="#87867F" font-size="10.5">apps/web</text>
+
+            <rect x="20"  y="150" width="180" height="54" rx="10" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+            <text x="110" y="173" text-anchor="middle" font-weight="600">React Query キャッシュ</text>
+            <text x="110" y="190" text-anchor="middle" fill="#87867F" font-size="10.5">楽観的挿入</text>
+
+            <rect x="340" y="150" width="180" height="54" rx="10" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+            <text x="430" y="173" text-anchor="middle" font-weight="600">comments.create</text>
+            <text x="430" y="190" text-anchor="middle" fill="#87867F" font-size="10.5">tRPC · packages/api</text>
+
+            <rect x="340" y="266" width="180" height="54" rx="10" fill="#141413" stroke="#141413"/>
+            <text x="430" y="289" text-anchor="middle" font-weight="600" fill="#FAF9F5">comments テーブル</text>
+            <text x="430" y="306" text-anchor="middle" fill="#C9B98A" font-size="10.5">postgres · packages/db</text>
+
+            <rect x="660" y="150" width="180" height="54" rx="10" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+            <text x="750" y="173" text-anchor="middle" font-weight="600">リアルタイムチャンネル</text>
+            <text x="750" y="190" text-anchor="middle" fill="#87867F" font-size="10.5">task:{id}:comments</text>
+
+            <rect x="660" y="20"  width="180" height="54" rx="10" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+            <text x="750" y="43" text-anchor="middle" font-weight="600">他の閲覧者</text>
+            <text x="750" y="60" text-anchor="middle" fill="#87867F" font-size="10.5">購読中のカード</text>
+
+            <rect x="660" y="266" width="180" height="54" rx="10" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+            <text x="750" y="289" text-anchor="middle" font-weight="600">通知ワーカー</text>
+            <text x="750" y="306" text-anchor="middle" fill="#87867F" font-size="10.5">@メンション → キュー</text>
+          </g>
+
+          <!-- arrows -->
+          <g stroke="#87867F" stroke-width="1.5" fill="none">
+            <path d="M110 74 L110 150" marker-end="url(#arrow)"/>
+            <path d="M200 177 L340 177" marker-end="url(#arrow)"/>
+            <path d="M430 204 L430 266" marker-end="url(#arrow)"/>
+            <path d="M520 293 L660 293" marker-end="url(#arrow)"/>
+          </g>
+          <g stroke="#D97757" stroke-width="1.5" fill="none" stroke-dasharray="5 4">
+            <path d="M520 177 L660 177" marker-end="url(#arrowClay)"/>
+            <path d="M750 150 L750 74" marker-end="url(#arrowClay)"/>
+            <path d="M660 162 C 540 120, 280 120, 205 162" marker-end="url(#arrowClay)"/>
+          </g>
+
+          <!-- edge labels -->
+          <g font-size="10.5" fill="#87867F">
+            <text x="118" y="118">送信 (id=temp)</text>
+            <text x="240" y="170">mutate</text>
+            <text x="438" y="240">INSERT + 既読カーソル</text>
+            <text x="548" y="286">キューに追加</text>
+            <text x="548" y="172" fill="#D97757">行をブロードキャスト</text>
+            <text x="758" y="118" fill="#D97757">ライブ追記</text>
+            <text x="360" y="112" fill="#D97757">一時ID → 本番IDへの整合</text>
+          </g>
+        </svg>
+        <p class="caption">実線＝リクエスト/レスポンスパス。クレイ色の破線＝リアルタイムファンアウト。コンポーザーは破線側のパスを待つことはありません。</p>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+
+    <section>
+      <div class="sec-head"><span class="num">03</span><h2>モックアップ</h2></div>
+      <p class="sec-intro">ピクセル単位で最終確定したものではありません——レビュアーと私がネストの深さ、コンポーザーの配置、サイドバーのダイジェストの見た目について合意できる程度のものです。</p>
+
+      <div class="mocks">
+        <div class="mock">
+          <div class="mock-label">A・開いたタスクカード内のスレッド</div>
+          <div class="mock-body">
+            <div class="card-mock">
+              <div class="cm-title">オンボーディング空状態の書き直しをリリース</div>
+              <div class="cm-meta">BIR-1142 · 担当: Priya · 期限: 金曜</div>
+              <div class="cm-divider"></div>
+              <div class="thread">
+                <div class="comment">
+                  <div class="avatar">JM</div>
+                  <div class="bubble">
+                    <div class="author">Jonah M. <span class="time">2時間前</span></div>
+                    <div class="text">ワークスペースに既にプロジェクトが1つある場合、イラストは切り替えるべきでしょうか？「ここから始める」的なイラストを2回表示するのは違和感があります。</div>
+                    <div class="reply-link">返信</div>
+                  </div>
+                </div>
+                <div class="comment nested">
+                  <div class="avatar alt">PS</div>
+                  <div class="bubble">
+                    <div class="author">Priya S. <span class="time">40分前</span></div>
+                    <div class="text">良い指摘です——<code>projects.count &gt; 0</code>で分岐させ、最小構成のバリアントにフォールバックします。</div>
+                  </div>
+                </div>
+                <div class="composer">
+                  <div class="field">コメントを追加…</div>
+                  <div class="send">投稿</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mock">
+          <div class="mock-label">B・サイドバーの未読ダイジェスト</div>
+          <div class="mock-body">
+            <div class="digest">
+              <div class="row unread">
+                <div class="mini-av">JM</div>
+                <div class="txt"><strong>Jonah</strong>が<span class="on">BIR-1142に</span>コメント — 「イラストは切り替えるべきでしょうか…」</div>
+              </div>
+              <div class="row unread">
+                <div class="mini-av">AK</div>
+                <div class="txt"><strong>Aiko</strong>があなたを<span class="on">BIR-1098で</span>メンション — 「@priya ここの文言を確認してもらえますか？」</div>
+              </div>
+              <div class="row">
+                <div class="mini-av">RW</div>
+                <div class="txt"><strong>Rowan</strong>が<span class="on">BIR-0971に</span>返信 — 「マージしました、素早い対応ありがとう。」</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+
+    <section>
+      <div class="sec-head"><span class="num">04</span><h2>主要コード</h2></div>
+      <p class="sec-intro">最も間違えやすい2つの部分は、マイグレーション（ソフトデリート、既読カーソル）と楽観的ミューテーション（一時IDの整合処理）です。</p>
+
+      <div class="code-grid">
+        <div class="code-block">
+          <div class="file-label">packages/db/migrations/0042_comments.sql</div>
+          <div class="code"><pre><span class="kw">create table</span> <span class="fn">comments</span> (
+  id          uuid <span class="kw">primary key default</span> gen_random_uuid(),
+  task_id     uuid <span class="kw">not null references</span> tasks(id),
+  parent_id   uuid <span class="kw">references</span> comments(id),   <span class="cm">-- one level only,</span>
+                                                <span class="cm">-- enforced in API</span>
+  author_id   uuid <span class="kw">not null references</span> users(id),
+  body        text <span class="kw">not null</span>,
+  created_at  timestamptz <span class="kw">not null default</span> now(),
+  deleted_at  timestamptz                       <span class="cm">-- soft delete</span>
+);
+
+<span class="kw">create table</span> <span class="fn">comment_reads</span> (
+  task_id    uuid <span class="kw">not null references</span> tasks(id),
+  user_id    uuid <span class="kw">not null references</span> users(id),
+  read_up_to timestamptz <span class="kw">not null</span>,
+  <span class="kw">primary key</span> (task_id, user_id)
+);
+
+<span class="kw">create index</span> <span class="fn">comments_task_created</span>
+  <span class="kw">on</span> comments (task_id, created_at);</pre></div>
+        </div>
+
+        <div class="code-block">
+          <div class="file-label">apps/web/hooks/useAddComment.ts</div>
+          <div class="code"><pre><span class="kw">export function</span> <span class="fn">useAddComment</span>(taskId: string) {
+  <span class="kw">const</span> qc = useQueryClient();
+  <span class="kw">return</span> trpc.comments.create.<span class="fn">useMutation</span>({
+    <span class="fn">onMutate</span>: <span class="kw">async</span> (input) =&gt; {
+      <span class="kw">const</span> temp = { ...input, id: <span class="str">`temp-${nanoid()}`</span>,
+                     createdAt: <span class="kw">new</span> Date(), pending: <span class="kw">true</span> };
+      qc.<span class="fn">setQueryData</span>(key(taskId), (prev) =&gt;
+        [...(prev ?? []), temp]);
+      <span class="kw">return</span> { tempId: temp.id };
+    },
+    <span class="fn">onSuccess</span>: (row, _v, ctx) =&gt; {
+      <span class="cm">// reconcile temp id → real id so the</span>
+      <span class="cm">// realtime append doesn't duplicate it</span>
+      qc.<span class="fn">setQueryData</span>(key(taskId), (prev) =&gt;
+        prev.map((c) =&gt; c.id === ctx.tempId ? row : c));
+    },
+    <span class="fn">onError</span>: (_e, _v, ctx) =&gt; {
+      qc.<span class="fn">setQueryData</span>(key(taskId), (prev) =&gt;
+        prev.filter((c) =&gt; c.id !== ctx.tempId));
+    },
+  });
+}</pre></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+
+    <section>
+      <div class="sec-head"><span class="num">05</span><h2>リスクと対策</h2></div>
+      <div class="risks">
+        <div class="row">
+          <div class="cell head">リスク</div>
+          <div class="cell head">深刻度</div>
+          <div class="cell head">対策</div>
+        </div>
+        <div class="row">
+          <div class="cell">リアルタイム重複: ソケットの追記がHTTPレスポンスおよび一時IDの整合処理と競合する。</div>
+          <div class="cell"><span class="sev high">高</span></div>
+          <div class="cell">キャッシュ更新処理内で、サーバー割り当ての<code>id</code>を基に重複を排除する。ソケットのペイロードには本番IDが含まれ、整合処理の際に一時行はフィルタリングされる。</div>
+        </div>
+        <div class="row">
+          <div class="cell">ユーザーが別のデバイスでスレッドを読んだ場合、未読件数が古いままになる。</div>
+          <div class="cell"><span class="sev med">中</span></div>
+          <div class="cell">同じチャンネル上で<code>comment_reads</code>のupsertをブロードキャストする。クライアントは自身のカーソルをmax(ローカル, リモート)として扱う。</div>
+        </div>
+        <div class="row">
+          <div class="cell">貼り付けられたMarkdown内でのメンション検出の誤検出（<code>@media</code>、<code>@2x</code>など）。</div>
+          <div class="cell"><span class="sev low">低</span></div>
+          <div class="cell">書き込み時にワークスペースメンバーのみを対象にメンションを解決し、解決済みのユーザーIDを保存する——読み込み時に再解析は行わない。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+
+    <section>
+      <div class="sec-head"><span class="num">06</span><h2>未解決の課題</h2></div>
+      <div class="open-q">
+        <div class="q">
+          <div class="qt">編集を許可するか、それとも削除して再投稿のみにするか？</div>
+          <div class="qd">編集を実装するには<code>edited_at</code>カラムと「編集済み」であることを示すUIが必要になる。削除して再投稿する方法はシンプルだが、返信の紐付け（アンカー）が失われる。v1では削除のみにする方向で検討中。</div>
+          <div class="owner">決定者・デザイン、スライス2まで</div>
+        </div>
+        <div class="q">
+          <div class="qt">アプリを閉じているユーザーへのメールダイジェストの配信頻度</div>
+          <div class="qd">メンションごとに即時通知すると、通知が多くノイズになる。提案: 15分単位でバッチ処理し、タスクごとに1件のメールへ集約し、既存の設定テーブルにある通知休止時間（quiet hours）を尊重する。</div>
+          <div class="owner">決定者・プラットフォーム、スライス4まで</div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</body>
+</html>

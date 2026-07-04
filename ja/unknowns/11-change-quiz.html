@@ -1,0 +1,543 @@
+<!-- Copyright 2026 Anthropic PBC · SPDX-License-Identifier: Apache-2.0 -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>マージ前にクイズで理解度を確認 — 「わからないこと」を知る</title>
+<style>
+  :root{
+    --ivory:#FAF9F5; --paper:#FFFFFF; --slate:#141413; --clay:#D97757; --clay-d:#B85C3E;
+    --oat:#E3DACC; --olive:#788C5D; --g100:#F0EEE6; --g200:#E6E3DA; --g300:#D1CFC5;
+    --g500:#87867F; --g700:#3D3D3A;
+    --serif: ui-serif, Georgia, "Times New Roman", Times, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--ivory); color:var(--slate); font-family:var(--sans);
+    line-height:1.55; font-size:15px; padding:40px 20px 64px;
+  }
+  .page{max-width:980px;margin:0 auto}
+  h1,h2,h3{font-family:var(--serif);font-weight:500;letter-spacing:-0.015em;color:var(--slate)}
+
+  /* ---- page header ---- */
+  .topline{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+  .eyebrow{
+    font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:0.12em;
+    color:var(--g500);display:flex;align-items:center;gap:10px;
+  }
+  .eyebrow::before{content:"";display:inline-block;width:24px;height:2px;background:var(--clay);flex:none}
+  .backlink{font-family:var(--mono);font-size:12px;color:var(--g500);text-decoration:none;white-space:nowrap}
+  .backlink:hover{color:var(--clay-d)}
+  h1.pagetitle{font-size:34px;line-height:1.15;margin-bottom:10px}
+  .lede{color:var(--g700);font-size:16px;max-width:64ch;margin-bottom:26px}
+
+  /* ---- prompt box ---- */
+  .promptcard{
+    background:var(--paper);border:1.5px solid var(--g300);border-radius:14px;
+    padding:22px 26px;margin-bottom:36px;position:relative;
+  }
+  .promptcard .label{
+    font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:0.12em;
+    color:var(--clay);margin-bottom:12px;
+  }
+  .promptcard blockquote{
+    font-family:var(--serif);font-style:italic;font-size:17.5px;line-height:1.55;
+    color:var(--slate);border:none;
+  }
+  .copybtn{
+    position:absolute;top:18px;right:18px;font-family:var(--mono);font-size:11.5px;
+    padding:6px 12px;border:1.5px solid var(--g300);border-radius:8px;background:var(--g100);
+    color:var(--g700);cursor:pointer;transition:all .15s;
+  }
+  .copybtn:hover{border-color:var(--clay);color:var(--clay-d)}
+  .copybtn.copied{background:var(--olive);border-color:var(--olive);color:#fff}
+
+  /* ---- divider ---- */
+  .divider{display:flex;align-items:center;gap:16px;margin:0 0 34px;
+    font-family:var(--mono);font-size:12px;letter-spacing:0.12em;color:var(--g500);text-transform:uppercase;white-space:nowrap}
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--g300)}
+
+  /* =================== ARTIFACT =================== */
+  .artifact{background:var(--paper);border:1.5px solid var(--g300);border-radius:14px;overflow:hidden}
+  .art-head{padding:28px 34px 24px;border-bottom:1.5px solid var(--g200)}
+  .art-eyebrow{font-family:var(--mono);font-size:11.5px;text-transform:uppercase;letter-spacing:0.12em;color:var(--g500);margin-bottom:8px;display:flex;align-items:center;gap:10px}
+  .art-eyebrow::before{content:"";display:inline-block;width:24px;height:2px;background:var(--clay);flex:none}
+  .art-head h2{font-size:26px;margin-bottom:6px}
+  .art-head .sub{color:var(--g700);font-size:14.5px;max-width:66ch}
+  .branchline{font-family:var(--mono);font-size:12.5px;color:var(--g700);background:var(--g100);
+    border:1.5px solid var(--g300);border-radius:8px;padding:6px 10px;display:inline-block;margin-top:14px;overflow-x:auto;max-width:100%}
+  .branchline .arr{color:var(--g500);margin:0 6px}
+
+  .art-body{padding:30px 34px 38px}
+  @media (max-width:560px){
+    .art-head{padding:22px 18px 18px}
+    .art-body{padding:22px 18px 30px}
+    h1.pagetitle{font-size:27px}
+  }
+
+  /* stat chips */
+  .stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:34px}
+  .statchip{flex:1;min-width:130px;background:var(--g100);border:1.5px solid var(--g300);border-radius:12px;padding:14px 18px}
+  .statchip .num{font-family:var(--serif);font-size:28px;font-weight:500;letter-spacing:-0.02em;line-height:1.1}
+  .statchip .num.add{color:var(--olive)}
+  .statchip .num.del{color:var(--clay-d)}
+  .statchip .cap{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g500);margin-top:4px}
+
+  .art-section{margin-bottom:38px}
+  .art-section h3{font-size:20px;margin-bottom:6px}
+  .art-section .secnote{color:var(--g500);font-size:13.5px;margin-bottom:16px}
+  .art-section p{color:var(--g700);margin-bottom:12px;max-width:70ch}
+  .art-section p strong{color:var(--slate)}
+
+  /* mental model diagram */
+  .flow-pair{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+  @media (max-width:680px){.flow-pair{grid-template-columns:1fr}}
+  .flowcard{border:1.5px solid var(--g300);border-radius:12px;padding:16px 16px 18px;background:var(--ivory)}
+  .flowcard.after{border-color:var(--clay)}
+  .flowcard .fc-label{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px}
+  .flowcard.before .fc-label{color:var(--g500)}
+  .flowcard.after .fc-label{color:var(--clay-d)}
+  .fnode{border:1.5px solid var(--g300);background:var(--paper);border-radius:8px;padding:7px 12px;
+    font-family:var(--mono);font-size:12px;color:var(--g700);text-align:center}
+  .fnode.new{border-color:var(--clay);background:#FBF1EC;color:var(--clay-d)}
+  .fnode.oatf{background:var(--oat)}
+  .farrow{display:flex;justify-content:center;align-items:center;height:22px;color:var(--g500);font-size:13px;line-height:1}
+  .farrow.lab{gap:8px;font-family:var(--mono);font-size:10.5px}
+  .fsplit{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .fsplit .farrow{height:20px}
+
+  /* behavior blocks */
+  .beh{border:1.5px solid var(--g300);border-radius:12px;margin-bottom:14px;overflow:hidden}
+  .beh-head{display:flex;align-items:baseline;gap:12px;padding:14px 18px;background:var(--g100)}
+  .beh-num{font-family:var(--mono);font-size:12px;color:var(--clay-d);font-weight:600;flex:none}
+  .beh-head h4{font-family:var(--serif);font-weight:500;font-size:16.5px;letter-spacing:-0.01em}
+  .beh-body{padding:14px 18px 16px}
+  .beh-row{display:grid;grid-template-columns:58px 1fr;gap:10px;margin-bottom:9px;font-size:14px}
+  .beh-row:last-child{margin-bottom:0}
+  .beh-row .k{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g500);padding-top:3px}
+  .beh-row .v{color:var(--g700)}
+  .fchip{display:inline-block;font-family:var(--mono);font-size:11.5px;background:var(--g100);
+    border:1px solid var(--g300);border-radius:6px;padding:1.5px 7px;color:var(--g700);white-space:nowrap;margin:1px 2px 1px 0}
+
+  /* leans-on callout */
+  .leans{border:1.5px solid var(--g300);border-left:4px solid var(--olive);border-radius:12px;
+    background:var(--ivory);padding:16px 20px}
+  .leans .lab{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--olive);margin-bottom:6px}
+  .leans p{margin-bottom:0;font-size:14px}
+
+  /* ---- quiz ---- */
+  .quiz-rule{display:flex;align-items:center;gap:16px;margin:44px 0 8px;
+    font-family:var(--mono);font-size:11.5px;letter-spacing:0.12em;color:var(--g500);text-transform:uppercase}
+  .quiz-rule::before,.quiz-rule::after{content:"";flex:1;height:1px;background:var(--g300)}
+  .quiz-intro{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+  .quiz-intro h3{font-size:22px}
+  .quiz-intro .qsub{color:var(--g500);font-size:13.5px}
+  .scorebox{font-family:var(--mono);font-size:12.5px;color:var(--g700);background:var(--g100);
+    border:1.5px solid var(--g300);border-radius:10px;padding:8px 14px;white-space:nowrap}
+  .scorebox b{color:var(--slate)}
+
+  .q{border:1.5px solid var(--g300);border-radius:12px;padding:18px 20px;margin-bottom:16px;background:var(--paper)}
+  .q.answered-right{border-color:var(--olive)}
+  .q.answered-wrong{border-color:var(--clay)}
+  .q .qnum{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--g500);margin-bottom:6px}
+  .q .qtext{font-family:var(--serif);font-size:17px;line-height:1.45;margin-bottom:14px;letter-spacing:-0.01em}
+  .q .qtext code{font-family:var(--mono);font-size:14px;background:var(--g100);border:1px solid var(--g300);border-radius:5px;padding:1px 5px}
+  .opt{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;
+    border:1.5px solid var(--g300);border-radius:9px;background:var(--ivory);padding:10px 14px;
+    margin-bottom:8px;cursor:pointer;font:inherit;font-size:14px;color:var(--g700);transition:border-color .12s, background .12s}
+  .opt:hover{border-color:var(--g500)}
+  .opt .key{font-family:var(--mono);font-size:11.5px;color:var(--g500);flex:none;padding-top:2px}
+  .opt.sel-right{border-color:var(--olive);background:#F1F4EB;color:var(--slate)}
+  .opt.sel-right .key{color:var(--olive)}
+  .opt.sel-wrong{border-color:var(--clay);background:#FBF1EC;color:var(--slate)}
+  .opt.sel-wrong .key{color:var(--clay-d)}
+  .opt.reveal-right{border-color:var(--olive)}
+  .opt:disabled{cursor:default;opacity:1}
+  .opt.dim{opacity:.55}
+  .fb{border-radius:9px;padding:12px 15px;font-size:13.5px;margin-top:4px;display:none}
+  .fb.show{display:block}
+  .fb.good{background:#F1F4EB;border:1.5px solid var(--olive);color:var(--g700)}
+  .fb.good .fbtag{color:var(--olive)}
+  .fb.bad{background:#FBF1EC;border:1.5px solid var(--clay);color:var(--g700)}
+  .fb.bad .fbtag{color:var(--clay-d)}
+  .fbtag{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;font-weight:600;margin-bottom:5px}
+  .fb .excerpt{margin-top:8px;border-left:3px solid var(--g300);padding:6px 12px;background:var(--paper);
+    border-radius:0 7px 7px 0;font-size:13px;color:var(--g700);font-style:italic;font-family:var(--serif)}
+  .fb .exlab{font-family:var(--mono);font-style:normal;font-size:10.5px;text-transform:uppercase;letter-spacing:0.09em;color:var(--g500);display:block;margin-bottom:3px}
+
+  /* result cards */
+  .result{display:none;margin-top:26px}
+  .result.show{display:block}
+  .cleared{border:1.5px solid var(--olive);border-radius:14px;background:#F1F4EB;padding:24px 26px}
+  .cleared .clr-head{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .clr-badge{width:34px;height:34px;border-radius:50%;background:var(--olive);color:#fff;display:flex;
+    align-items:center;justify-content:center;font-size:17px;flex:none}
+  .cleared h3{font-size:21px}
+  .cleared .clr-sub{color:var(--g700);font-size:14px;margin-bottom:16px}
+  .mergelist{list-style:none}
+  .mergelist li{display:flex;gap:10px;align-items:baseline;font-family:var(--mono);font-size:12.5px;
+    color:var(--g700);padding:7px 0;border-bottom:1px dashed var(--g300)}
+  .mergelist li:last-child{border-bottom:none}
+  .mergelist .tick{color:var(--olive);font-weight:700;flex:none}
+  .mergelist .pend{color:var(--g500);flex:none}
+  .reread{border:1.5px solid var(--clay);border-radius:14px;background:#FBF1EC;padding:22px 26px}
+  .reread h3{font-size:19px;margin-bottom:4px}
+  .reread p{color:var(--g700);font-size:14px;margin-bottom:12px}
+  .reread ul{list-style:none}
+  .reread li{margin-bottom:7px}
+  .reread a{color:var(--clay-d);font-size:14px;text-decoration:none;border-bottom:1px solid var(--clay)}
+  .reread a:hover{color:var(--slate)}
+  .retry{margin-top:14px;font-family:var(--mono);font-size:12px;padding:8px 16px;border:1.5px solid var(--g300);
+    border-radius:8px;background:var(--paper);color:var(--g700);cursor:pointer}
+  .retry:hover{border-color:var(--clay);color:var(--clay-d)}
+
+  footer{margin-top:44px;text-align:center;font-size:13px;color:var(--g500)}
+  footer a{color:var(--clay-d);text-decoration:none}
+  footer a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ============ PAGE HEADER ============ -->
+  <div class="topline">
+    <div class="eyebrow">「わからないこと」を知る &middot; 実装後</div>
+    <a class="backlink" href="index.html">&larr; すべての例</a>
+  </div>
+  <h1 class="pagetitle">マージ前にクイズで理解度を確認</h1>
+  <p class="lede">レポートを依頼するときに<em>必ず合格すべきクイズ</em>を添えてもらうと、「diffに目を通した」という状態が、検証済みの理解へと変わる——このアーティファクトは、本当に理解できていない限り「完了した」と感じさせてくれない。</p>
+
+  <div class="promptcard">
+    <div class="label">プロンプト</div>
+    <button class="copybtn" id="copyBtn">プロンプトをコピー</button>
+    <blockquote id="promptText">マージする前に、この変更で起こったことをすべて理解しているか確認したいです。export機能のdiffについて、背景・直感的な理解・実施内容を盛り込んだHTMLレポートを作成し、最後に必ず合格しなければならないクイズを付けてください。</blockquote>
+  </div>
+
+  <div class="divider">Claudeが作成した内容</div>
+
+  <!-- ============ ARTIFACT ============ -->
+  <div class="artifact">
+    <div class="art-head">
+      <div class="art-eyebrow">Acme &middot; マージ準備レポート</div>
+      <h2>クリップのエクスポート: 変更内容とその理由</h2>
+      <p class="sub">レビュースレッドにサーバーサイドのクリップエクスポート機能を追加する、14ファイルのdiffです。以下の3つのセクションを読んでから、クイズに合格してください。合格できなければ、まだマージする準備ができていないということです——それこそがこの仕組みの狙いです。</p>
+      <div class="branchline">feature/clip-export<span class="arr">&rarr;</span>main &middot; 14ファイル &middot; 9コミット</div>
+    </div>
+
+    <div class="art-body">
+
+      <!-- stats -->
+      <div class="stats">
+        <div class="statchip"><div class="num">14</div><div class="cap">変更ファイル数</div></div>
+        <div class="statchip"><div class="num add">+612</div><div class="cap">追加行数</div></div>
+        <div class="statchip"><div class="num del">&minus;148</div><div class="cap">削除行数</div></div>
+      </div>
+
+      <!-- mental model -->
+      <div class="art-section" id="sec-model">
+        <h3>メンタルモデル</h3>
+        <p class="secnote">1つの図は14ファイル分の価値がある: エクスポートリクエストが今どこへ向かうか、以前はどこへ向かっていたか。</p>
+        <p>この変更前は、「クリップをエクスポートする」とはブラウザが<code>MediaRecorder</code>を使ってクライアント側でフレームをつなぎ合わせ、その結果をアップロードすることを意味していました——遅く、タブがロックされ、Safariでは動作しませんでした。現在は、クライアントはエクスポートを<strong>リクエスト</strong>するだけです。新しいワーカーが元のメディアからサーバーサイドでレンダリングし、クライアントは署名付きダウンロードURLが表示されるまでジョブをポーリングします。</p>
+        <div class="flow-pair">
+          <div class="flowcard before">
+            <div class="fc-label">変更前 &middot; クライアント側レンダリング</div>
+            <div class="fnode">ReviewPlayer.tsx</div>
+            <div class="farrow">&darr;</div>
+            <div class="fnode">MediaRecorderでキャプチャ(タブ内)</div>
+            <div class="farrow lab"><span>&darr;</span><span>~40&ndash;90秒、タブロック中</span></div>
+            <div class="fnode">PUT /uploads(ファイル全体)</div>
+            <div class="farrow">&darr;</div>
+            <div class="fnode oatf">S3のexports/バケット</div>
+          </div>
+          <div class="flowcard after">
+            <div class="fc-label">変更後 &middot; サーバーサイドジョブ</div>
+            <div class="fnode">ReviewPlayer.tsx</div>
+            <div class="farrow lab"><span>&darr;</span><span>POST /api/exports(ジョブIDを返す)</span></div>
+            <div class="fnode new">export-worker(新規、ffmpeg)</div>
+            <div class="fsplit">
+              <div><div class="farrow">&darr;</div><div class="fnode oatf">S3のexports/バケット</div></div>
+              <div><div class="farrow">&darr;</div><div class="fnode new">jobsテーブル(新規)</div></div>
+            </div>
+            <div class="farrow lab"><span>&darr;</span><span>クライアントが2秒ごとにポーリング</span></div>
+            <div class="fnode">GET /api/exports/:id &rarr; 署名付きURL</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- non-obvious behaviors -->
+      <div class="art-section" id="sec-behaviors">
+        <h3>この変更が導入する、3つの分かりにくい挙動</h3>
+        <p class="secnote">diffをざっと見ただけでは分からない部分です。いずれも意図的な設計であり、その理由を説明します。</p>
+
+        <div class="beh" id="beh-1">
+          <div class="beh-head"><span class="beh-num">01</span><h4>エクスポートは、レビュアーが視聴したプロキシではなく、元のアップロードからレンダリングされる</h4></div>
+          <div class="beh-body">
+            <div class="beh-row"><span class="k">内容</span><span class="v">ワーカーは<code class="fchip">media/originals/</code>を取得し、720pのレビュープロキシは決して使いません。そのため、エクスポートされたクリップは、レビュアーがアノテーションを描いたときに見ていたものより<em>鮮明に</em>見える場合があります。</span></div>
+            <div class="beh-row"><span class="k">理由</span><span class="v">編集者はクライアントに渡すためにクリップをエクスポートします。圧縮されたプロキシを渡してしまうと体裁が悪くなります。アノテーションの座標は正規化(0&ndash;1)された形で保存されているため、フル解像度のフレームに正しく再投影されます。</span></div>
+            <div class="beh-row"><span class="k">場所</span><span class="v"><span class="fchip">worker/export/render.ts:41</span> <span class="fchip">worker/export/burn_in.ts:88</span></span></div>
+          </div>
+        </div>
+
+        <div class="beh" id="beh-2">
+          <div class="beh-head"><span class="beh-num">02</span><h4>エクスポートジョブはワーカーのクラッシュを乗り越える——リトライではなく可視性タイムアウトによって</h4></div>
+          <div class="beh-body">
+            <div class="beh-row"><span class="k">内容</span><span class="v">ジョブの行は、<code class="fchip">locked_until = now() + 10min</code>を設定することで確保(claim)されます。レンダリング途中でワーカーが停止しても、リトライは発生しません。ロックが単純に期限切れとなり、次に空いたワーカーがそのジョブを最初からやり直します。</span></div>
+            <div class="beh-row"><span class="k">理由</span><span class="v">ffmpegのレンダリングは処理途中では冪等(idempotent)ではなく、リトライキューを導入するにはデッドレターの処理が必要になりますが、それはまだ望んでいません。ロックの期限切れは、たった1つのカラムでat-least-once(最低1回)のセマンティクスを実現します。結果として、クラッシュしたジョブは復旧するまで最大10分間「処理中」と表示されます。</span></div>
+            <div class="beh-row"><span class="k">場所</span><span class="v"><span class="fchip">db/migrations/0142_export_jobs.sql</span> <span class="fchip">worker/export/claim.ts:19</span></span></div>
+          </div>
+        </div>
+
+        <div class="beh" id="beh-3">
+          <div class="beh-head"><span class="beh-num">03</span><h4>ダウンロードURLは24時間で期限切れになるが、エクスポート自体は7日間残る</h4></div>
+          <div class="beh-body">
+            <div class="beh-row"><span class="k">内容</span><span class="v"><code class="fchip">GET /api/exports/:id</code>が返す署名付きS3 URLは24時間有効ですが、元となるオブジェクトは7日間のライフサイクルルールが発動するまで削除されません。同じエンドポイントに再度アクセスすれば、再レンダリングなしで新しいURLが発行されます。</span></div>
+            <div class="beh-row"><span class="k">理由</span><span class="v">URLの有効期限を短くすることで、ワークスペース外へのリンク転送を制限しています(エクスポートには未公開の映像が含まれる場合があるため)。オブジェクト自体のTTLを長くしているのは、古くなったSlackのリンクを復活させるのに必要なのが90秒の再レンダリングではなく、1回のAPI呼び出しだけで済むようにするためです。</span></div>
+            <div class="beh-row"><span class="k">場所</span><span class="v"><span class="fchip">api/exports/get.ts:57</span> <span class="fchip">infra/s3_lifecycle.tf:23</span></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- leans on -->
+      <div class="art-section" id="sec-leans">
+        <div class="leans">
+          <div class="lab">この機能が前提としている既存の挙動</div>
+          <p><strong>ワークスペース単位の署名付きURL認証。</strong> <span class="fchip">GET /api/exports/:id</span>自体は権限チェックを行っていません——すべてのメディア関連ルートを既に保護している<span class="fchip">requireWorkspaceMember</span>ミドルウェアを再利用しているだけです。このミドルウェアのセッション処理が将来変更された場合(ゲストレビュアーのセッションに関する未対応チケットBL-2214が存在します)、エクスポートのダウンロードもそれに連動して変化します。このdiffの中には、それを警告する仕組みは何もありません。</p>
+        </div>
+      </div>
+
+      <!-- ============ QUIZ ============ -->
+      <div class="quiz-rule">Part 2 &middot; 証明せよ</div>
+      <div class="quiz-intro">
+        <div>
+          <h3>マージ前の6つの質問</h3>
+          <div class="qsub">単なる雑学ではありません——どれも、インシデント対応やレビューの最中に正しく判断しなければならない事柄です。</div>
+        </div>
+        <div class="scorebox">スコア: <b id="scoreNow">0</b> / <b>6</b> &middot; <span id="answeredNow">0</span>件回答済み</div>
+      </div>
+
+      <div id="quiz"></div>
+
+      <!-- results -->
+      <div class="result" id="resPass">
+        <div class="cleared">
+          <div class="clr-head"><div class="clr-badge">&#10003;</div><h3>マージ可</h3></div>
+          <p class="clr-sub">6/6——この変更について、対応を呼び出される誰にでも説明できる状態です。以下は標準チェックリストです。</p>
+          <ul class="mergelist">
+            <li><span class="tick">&#10003;</span>理解を検証済み(このクイズで6/6)</li>
+            <li><span class="tick">&#10003;</span>feature/clip-exportでCIがグリーン &middot; 412件のテスト</li>
+            <li><span class="tick">&#10003;</span>マイグレーション0142をレビュー済み &mdash; 追加のみ、バックフィルなし</li>
+            <li><span class="pend">&#9675;</span>上記の要約をコミット本文としてSquashマージする</li>
+            <li><span class="pend">&#9675;</span>デプロイ後30分間、export-workerのダッシュボードを監視する</li>
+            <li><span class="pend">&#9675;</span>マージコメントにBL-2214への依存を記載する</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="result" id="resFail">
+        <div class="reread">
+          <h3 id="failTitle">まだです——これらのセクションを再読してください</h3>
+          <p>以下の質問を間違えました。その抜けは、レポートの該当箇所に直接対応しています:</p>
+          <ul id="failLinks"></ul>
+          <button class="retry" id="retryBtn">クイズをリセットしてやり直す</button>
+        </div>
+      </div>
+
+    </div><!-- /art-body -->
+  </div><!-- /artifact -->
+
+  <footer><a href="index.html">「わからないこと」を知る</a> の一部です &mdash; ブログ記事の副読本となる実例集です。</footer>
+</div>
+
+<script>
+(function(){
+  // ---- copy prompt ----
+  var copyBtn = document.getElementById('copyBtn');
+  copyBtn.addEventListener('click', function(){
+    var t = document.getElementById('promptText').textContent;
+    function done(){ copyBtn.textContent='コピーしました'; copyBtn.classList.add('copied');
+      setTimeout(function(){copyBtn.textContent='プロンプトをコピー';copyBtn.classList.remove('copied');},1600); }
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(t).then(done, function(){ fallback(); });
+    } else { fallback(); }
+    function fallback(){
+      var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta);
+      ta.select(); try{document.execCommand('copy');}catch(e){} document.body.removeChild(ta); done();
+    }
+  });
+
+  // ---- quiz data ----
+  var QS = [
+    {
+      q:'レビュアーが「エクスポートしたクリップが、自分がアノテーションをつけたときと違って見える」と言っています。バグでないとすれば、その理由は?',
+      opts:[
+        'ファイルサイズを抑えるため、エクスポート時に低いビットレートで再エンコードしている',
+        'エクスポートはフル解像度の元データからレンダリングされるが、レビュアーは720pのプロキシを見ていた',
+        '元データが1080pを超える場合、アノテーションが失われる',
+        'SafariはChromeと異なる方法でエクスポートをレンダリングする'
+      ],
+      correct:1,
+      reinforce:'正解——エクスポートはmedia/originals/を取得するため、クリップはレビュアーが見ていたプロキシより鮮明になることがあります。想定された動作であり、バグではありません。',
+      excerptFrom:'挙動01', anchor:'beh-1', anchorLabel:'挙動01——エクスポートは元データからレンダリングされる',
+      excerpt:'ワーカーはmedia/originals/を取得し、720pのレビュープロキシは決して使いません。そのため、エクスポートされたクリップは、レビュアーがアノテーションを描いたときに見ていたものより鮮明に見える場合があります。'
+    },
+    {
+      q:'export-workerのPodが、レンダリングの途中でOOM(メモリ不足)によって強制終了されました。そのジョブはどうなりますか?',
+      opts:[
+        '手動で再実行するため、デッドレターキューに移される',
+        '別のワーカーで即座にリトライされる',
+        '10分のロックが期限切れになるまで「処理中」と表示され続け、その後別のワーカーが最初からやり直す',
+        '完全に失敗し、ユーザーは再度「エクスポート」をクリックする必要がある'
+      ],
+      correct:2,
+      reinforce:'その通り——リトライキューは存在しません。復旧はロックの期限切れによって行われます: 最大10分間「処理中」に見えた後、新たにレンダリングが行われます。',
+      excerptFrom:'挙動02', anchor:'beh-2', anchorLabel:'挙動02——ロック期限切れによるクラッシュ復旧',
+      excerpt:'レンダリング途中でワーカーが停止しても、リトライは発生しません。ロックが単純に期限切れとなり、次に空いたワーカーがそのジョブを最初からやり直します……クラッシュしたジョブは復旧するまで最大10分間「処理中」と表示されます。'
+    },
+    {
+      q:'クライアントがエクスポートのリンクをSlackに貼り、3日後にチームメイトがそれをクリックすると、S3の「期限切れ」エラーが表示されました。最も手間のかからない対処法は?',
+      opts:[
+        'エクスポートを再実行する——ファイルは24時間後に削除されている',
+        'GET /api/exports/:idに再度アクセスする——オブジェクトは7日間存在しているため、新しい署名付きURLが発行されるだけで済む',
+        's3_lifecycle.tfのライフサイクルルールを30日に延長する',
+        '管理者に依頼して、exports/バケットをpublic-read(公開読み取り)にしてもらう'
+      ],
+      correct:1,
+      reinforce:'はい——期限切れになったのはURL(24時間)だけです。オブジェクトは7日間存在するため、再度GETすれば再レンダリングのコストなしで新しいリンクが返されます。',
+      excerptFrom:'挙動03', anchor:'beh-3', anchorLabel:'挙動03——URLのTTLとオブジェクトのTTLの違い',
+      excerpt:'署名付きS3 URLは24時間有効ですが、元となるオブジェクトは7日間のライフサイクルルールが発動するまで削除されません。同じエンドポイントに再度アクセスすれば、再レンダリングなしで新しいURLが発行されます。'
+    },
+    {
+      q:'チケットBL-2214は、ゲストレビュアーのセッションの検証方法を変更します。このdiffが、そのチケットをよりリスクの高いものにしているのはなぜですか?',
+      opts:[
+        'ゲストが無制限にエクスポートを実行できるようになり、ワーカープールを使い果たしてしまう',
+        'エクスポートのダウンロードには専用の認証チェックがなく、requireWorkspaceMemberの挙動をそのまま引き継いでいるため、セッションの変更がダウンロードできる人を暗黙のうちに変えてしまう',
+        'jobsテーブルがゲストのセッショントークンを平文で保存している',
+        'そんなことはない——エクスポートはセッション処理と無関係だ'
+      ],
+      correct:1,
+      reinforce:'正解——GET /api/exports/:idはrequireWorkspaceMemberをそのまま借用しています。ミドルウェアを変更すれば、エクスポートへのアクセスも変わりますが、このdiffの中にはそれを警告する仕組みは何もありません。',
+      excerptFrom:'この機能が前提としている既存の挙動', anchor:'sec-leans', anchorLabel:'コールアウト——ワークスペース認証ミドルウェアに依存',
+      excerpt:'GET /api/exports/:id自体は権限チェックを行っていません——requireWorkspaceMemberミドルウェアを再利用しているだけです……このミドルウェアのセッション処理が将来変更された場合(BL-2214)、エクスポートのダウンロードもそれに連動して変化します。'
+    },
+    {
+      q:'デプロイ後、あるユーザーから「エクスポートが15分間処理中のまま止まっている」という報告がありました。この設計を踏まえると、15分という時間は何を示していますか?',
+      opts:[
+        '何も示していない——大きなクリップでは長いレンダリング時間は普通のことだ',
+        'クライアントの2秒間隔のポーリングループが、おそらく切断されている',
+        '単発のクラッシュ以上の問題が起きている: 1回のクラッシュなら10分のロック期間内に自己復旧するはずなので、15分以上ということは、繰り返し失敗しているか、ワーカーが固まっていることを意味する',
+        'S3のライフサイクルルールが、レンダリング途中でファイルを削除した'
+      ],
+      correct:2,
+      reinforce:'正解——10分のロックは自己復旧のための許容時間です。それを超える場合は、ジョブが繰り返し失敗しているか、ワーカーが動かなくなっていることを意味します。待つべきではなく、呼び出し(ページャー)すべき事態です。',
+      excerptFrom:'挙動02', anchor:'beh-2', anchorLabel:'挙動02——10分間の復旧ウィンドウ',
+      excerpt:'ロックの期限切れは、たった1つのカラムでat-least-once(最低1回)のセマンティクスを実現します。結果として、クラッシュしたジョブは復旧するまで最大10分間「処理中」と表示されます。'
+    },
+    {
+      q:'エクスポートがレビュープレイヤーとは異なる解像度でレンダリングされるにもかかわらず、アノテーションが正しい位置に表示されるのはなぜですか?',
+      opts:[
+        'ワーカーが、まずプロキシの解像度に合わせてエクスポートを縮小する',
+        'アノテーションの座標は正規化(0–1)された形で保存されており、レンダリングされるフレームサイズに合わせて再投影される',
+        'エクスポート時に、クライアントがアノテーションのピクセル座標を再送信する',
+        'burn_in.tsが、アノテーションを固定の1080pグリッドにスナップさせる'
+      ],
+      correct:1,
+      reinforce:'はい——正規化された座標があるからこそ、「元データからレンダリングする」設計が安全に成立しています。ピクセル単位で座標を保存していたら、このdiffのすべてのアノテーションが崩れていたはずです。',
+      excerptFrom:'挙動01', anchor:'beh-1', anchorLabel:'挙動01——正規化されたアノテーション座標',
+      excerpt:'アノテーションの座標は正規化(0–1)された形で保存されているため、フル解像度のフレームに正しく再投影されます。'
+    }
+  ];
+
+  var KEYS=['A','B','C','D'];
+  var answers=new Array(QS.length).fill(null); // true/false/null
+  var quizEl=document.getElementById('quiz');
+
+  function build(){
+    quizEl.innerHTML='';
+    answers=new Array(QS.length).fill(null);
+    QS.forEach(function(item,qi){
+      var qd=document.createElement('div'); qd.className='q'; qd.id='q'+qi;
+      var h='<div class="qnum">質問 '+(qi+1)+' / '+QS.length+'</div>'
+        +'<div class="qtext">'+item.q+'</div>';
+      item.opts.forEach(function(o,oi){
+        h+='<button class="opt" data-q="'+qi+'" data-o="'+oi+'"><span class="key">'+KEYS[oi]+'</span><span>'+o+'</span></button>';
+      });
+      h+='<div class="fb" id="fb'+qi+'"></div>';
+      qd.innerHTML=h;
+      quizEl.appendChild(qd);
+    });
+    updateScore();
+    document.getElementById('resPass').classList.remove('show');
+    document.getElementById('resFail').classList.remove('show');
+  }
+
+  quizEl.addEventListener('click', function(e){
+    var btn=e.target.closest('.opt'); if(!btn||btn.disabled) return;
+    var qi=+btn.dataset.q, oi=+btn.dataset.o, item=QS[qi];
+    if(answers[qi]!==null) return;
+    var right=(oi===item.correct);
+    answers[qi]=right;
+    var qd=document.getElementById('q'+qi);
+    qd.classList.add(right?'answered-right':'answered-wrong');
+    qd.querySelectorAll('.opt').forEach(function(b){
+      b.disabled=true;
+      var boi=+b.dataset.o;
+      if(boi===oi) b.classList.add(right?'sel-right':'sel-wrong');
+      else if(boi===item.correct && !right) b.classList.add('reveal-right');
+      else b.classList.add('dim');
+    });
+    var fb=document.getElementById('fb'+qi);
+    if(right){
+      fb.className='fb good show';
+      fb.innerHTML='<div class="fbtag">&#10003; 正解</div>'+item.reinforce;
+    } else {
+      fb.className='fb bad show';
+      fb.innerHTML='<div class="fbtag">不正解 &mdash; 正解は '+KEYS[item.correct]+'</div>'
+        +'レポートより:'
+        +'<div class="excerpt"><span class="exlab">'+item.excerptFrom+'</span>'+item.excerpt+'</div>';
+    }
+    updateScore();
+    if(answers.every(function(a){return a!==null;})) finish();
+  });
+
+  function updateScore(){
+    var score=answers.filter(function(a){return a===true;}).length;
+    var done=answers.filter(function(a){return a!==null;}).length;
+    document.getElementById('scoreNow').textContent=score;
+    document.getElementById('answeredNow').textContent=done;
+  }
+
+  function finish(){
+    var score=answers.filter(function(a){return a===true;}).length;
+    if(score===QS.length){
+      document.getElementById('resPass').classList.add('show');
+      document.getElementById('resPass').scrollIntoView({behavior:'smooth',block:'nearest'});
+    } else {
+      var missed=[]; answers.forEach(function(a,i){ if(a!==true) missed.push(i); });
+      document.getElementById('failTitle').textContent='まだです: '+score+'/'+QS.length+' — これらのセクションを再読してください';
+      var seen={}, ul=document.getElementById('failLinks'); ul.innerHTML='';
+      missed.forEach(function(i){
+        var it=QS[i];
+        if(seen[it.anchor]) return; seen[it.anchor]=true;
+        var li=document.createElement('li');
+        li.innerHTML='<a href="#'+it.anchor+'">'+it.anchorLabel+'</a>';
+        ul.appendChild(li);
+      });
+      document.getElementById('resFail').classList.add('show');
+      document.getElementById('resFail').scrollIntoView({behavior:'smooth',block:'nearest'});
+    }
+  }
+
+  document.getElementById('retryBtn').addEventListener('click', function(){
+    build();
+    document.getElementById('quiz').scrollIntoView({behavior:'smooth',block:'start'});
+  });
+
+  build();
+})();
+</script>
+</body>
+</html>

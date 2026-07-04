@@ -1,0 +1,596 @@
+<!-- Copyright 2026 Anthropic PBC · SPDX-License-Identifier: Apache-2.0 -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PR #312 — 通知配信をキューに移行</title>
+  <style>
+    :root {
+      --ivory:    #FAF9F5;
+      --slate:    #141413;
+      --clay:     #D97757;
+      --oat:      #E3DACC;
+      --olive:    #788C5D;
+      --gray-150: #F0EEE6;
+      --gray-300: #D1CFC5;
+      --gray-500: #87867F;
+      --gray-700: #3D3D3A;
+      --white:    #FFFFFF;
+
+      --serif: ui-serif, Georgia, 'Times New Roman', serif;
+      --sans:  system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --mono:  ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--ivory);
+      color: var(--gray-700);
+      line-height: 1.55;
+      padding: 56px 32px 120px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page { max-width: 1040px; margin: 0 auto; }
+
+    /* ---------- header ---------- */
+
+    header.page-head { margin-bottom: 44px; max-width: 820px; }
+    .eyebrow {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gray-500);
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 36px;
+      line-height: 1.15;
+      color: var(--slate);
+      margin-bottom: 10px;
+      letter-spacing: -0.01em;
+    }
+    .pr-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      color: var(--gray-500);
+      margin-bottom: 18px;
+    }
+    .pr-meta .stat strong { color: var(--slate); font-weight: 600; }
+    .pr-meta .add { color: var(--olive); }
+    .pr-meta .del { color: var(--clay); }
+
+    .prompt-box {
+      background: var(--gray-150);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      padding: 16px 20px;
+      font-size: 14.5px;
+      color: var(--gray-700);
+    }
+    .prompt-box .label {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-500);
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    /* ---------- layout ---------- */
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 240px;
+      gap: 48px;
+      align-items: start;
+    }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .toc { display: none; } }
+
+    section { margin-bottom: 56px; scroll-margin-top: 24px; }
+    h2 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 25px;
+      color: var(--slate);
+      margin-bottom: 14px;
+      letter-spacing: -0.01em;
+    }
+    p.lede { font-size: 15.5px; max-width: 680px; margin-bottom: 12px; }
+    p + p.lede { margin-top: 12px; }
+
+    .toc {
+      position: sticky;
+      top: 32px;
+      border-left: 1.5px solid var(--gray-300);
+      padding-left: 18px;
+      font-size: 13px;
+    }
+    .toc .t-head {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-500);
+      margin-bottom: 10px;
+    }
+    .toc a { display: block; color: var(--gray-700); text-decoration: none; padding: 4px 0; }
+    .toc a:hover { color: var(--clay); }
+    .toc .sub { padding-left: 12px; color: var(--gray-500); font-size: 12.5px; }
+
+    /* ---------- TL;DR ---------- */
+
+    .tldr {
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-left: 4px solid var(--clay);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 48px;
+      max-width: 760px;
+    }
+    .tldr .k {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-500);
+      margin-bottom: 8px;
+    }
+    .tldr p { font-size: 15px; color: var(--slate); }
+
+    /* ---------- before/after ---------- */
+
+    .ba {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin: 22px 0 4px;
+    }
+    @media (max-width: 720px) { .ba { grid-template-columns: 1fr; } }
+    .ba .panel {
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      padding: 18px 20px;
+    }
+    .ba .panel.after { border-color: var(--olive); }
+    .ba .k {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-500);
+      margin-bottom: 10px;
+    }
+    .ba .after .k { color: var(--olive); }
+    .ba ul { list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; }
+    .ba li::before { content: '·'; color: var(--gray-500); margin-right: 8px; }
+    .ba .after li::before { color: var(--olive); }
+
+    /* ---------- file tour ---------- */
+
+    .file-tour { display: flex; flex-direction: column; gap: 22px; }
+    .file {
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .file summary {
+      padding: 14px 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      list-style: none;
+      background: var(--gray-150);
+      border-bottom: 1.5px solid var(--gray-300);
+    }
+    .file[open] summary { border-bottom-color: var(--gray-300); }
+    .file:not([open]) summary { border-bottom: none; }
+    .file summary::-webkit-details-marker { display: none; }
+    .file summary .chev {
+      width: 8px; height: 8px;
+      border-right: 2px solid var(--gray-500);
+      border-bottom: 2px solid var(--gray-500);
+      transform: rotate(-45deg);
+      transition: transform .15s ease;
+      flex-shrink: 0;
+    }
+    .file[open] summary .chev { transform: rotate(45deg); }
+    .file summary .path {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--slate);
+      flex: 1;
+    }
+    .file summary .badge {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+    .badge.new { background: #E4E9DC; color: #4B5C39; }
+    .badge.mod { background: var(--oat); color: var(--slate); }
+    .badge.del { background: #F3D9CC; color: #8A3B1E; }
+    .file summary .stat { font-family: var(--mono); font-size: 12px; }
+    .file summary .stat .add { color: var(--olive); }
+    .file summary .stat .del { color: var(--clay); }
+    .file .file-body { padding: 18px 20px 22px; }
+    .file .why {
+      font-size: 14.5px;
+      margin-bottom: 14px;
+      max-width: 680px;
+    }
+    .file .why strong { color: var(--slate); }
+
+    /* ---------- code ---------- */
+
+    .code {
+      background: var(--slate);
+      border-radius: 10px;
+      padding: 16px 18px;
+      overflow-x: auto;
+    }
+    .code pre {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: #E8E6DE;
+      white-space: pre;
+    }
+    .code .kw  { color: var(--clay); }
+    .code .str { color: var(--olive); }
+    .code .cm  { color: var(--gray-500); }
+    .code .fn  { color: #C9B98A; }
+    .code .add { background: rgba(120,140,93,.22); display: inline-block; width: 100%; }
+    .code .del { background: rgba(217,119,87,.18); display: inline-block; width: 100%; text-decoration: line-through; text-decoration-color: rgba(217,119,87,.6); }
+
+    /* ---------- review focus ---------- */
+
+    .focus { display: flex; flex-direction: column; gap: 14px; max-width: 760px; }
+    .focus .item {
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      gap: 16px;
+    }
+    .focus .n {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--white);
+      background: var(--clay);
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .focus .t { font-weight: 600; color: var(--slate); font-size: 15px; margin-bottom: 2px; }
+    .focus .d { font-size: 13.5px; color: var(--gray-500); }
+    .focus .d code { font-size: 12.5px; }
+
+    /* ---------- test plan ---------- */
+
+    .tests { display: flex; flex-direction: column; gap: 10px; max-width: 760px; }
+    .test {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 10px;
+      padding: 13px 18px;
+      font-size: 14px;
+    }
+    .test .check {
+      width: 18px; height: 18px;
+      border-radius: 5px;
+      flex-shrink: 0;
+      margin-top: 2px;
+      border: 1.5px solid var(--gray-300);
+    }
+    .test.done .check {
+      background: var(--olive);
+      border-color: var(--olive);
+      position: relative;
+    }
+    .test.done .check::after {
+      content: '';
+      position: absolute;
+      left: 5px; top: 2px;
+      width: 5px; height: 9px;
+      border-right: 2px solid var(--white);
+      border-bottom: 2px solid var(--white);
+      transform: rotate(40deg);
+    }
+    .test .label { color: var(--slate); }
+    .test .note { color: var(--gray-500); font-size: 13px; margin-top: 2px; }
+
+    /* ---------- rollout ---------- */
+
+    .rollout { display: flex; gap: 0; max-width: 780px; }
+    @media (max-width: 720px) { .rollout { flex-direction: column; } }
+    .rollout .step {
+      flex: 1;
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      padding: 16px 18px;
+      position: relative;
+    }
+    .rollout .step:first-child { border-radius: 12px 0 0 12px; }
+    .rollout .step:last-child { border-radius: 0 12px 12px 0; }
+    .rollout .step + .step { border-left: none; }
+    @media (max-width: 720px) {
+      .rollout .step, .rollout .step:first-child, .rollout .step:last-child { border-radius: 12px; }
+      .rollout .step + .step { border-left: 1.5px solid var(--gray-300); margin-top: 10px; }
+    }
+    .rollout .step .pct {
+      font-family: var(--mono);
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--clay);
+      margin-bottom: 6px;
+    }
+    .rollout .step .d { font-size: 13px; color: var(--gray-500); }
+    .rollout .step .when { font-family: var(--mono); font-size: 11px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <header class="page-head">
+      <div class="eyebrow">プルリクエスト · Acme</div>
+      <h1>#312 — 通知配信をキューに移行</h1>
+      <div class="pr-meta">
+        <span class="stat"><strong>9</strong> ファイル</span>
+        <span class="stat"><span class="add">+418</span> / <span class="del">−190</span></span>
+        <span class="stat">ブランチ <strong>notify-queue</strong> → <strong>main</strong></span>
+        <span class="stat">作成者 <strong>@priya</strong></span>
+      </div>
+      <div class="prompt-box">
+        <span class="label">プロンプト</span>
+        レビュアー向けにPR #312の説明文を作成してください。変更の背景を説明したうえで、
+        ファイルごとにその<em>理由</em>を示しながら順を追って案内し、変更前後の挙動を
+        示し、どこに注目すべきかを明確に伝えてください。彼らはこの半年、通知関連の
+        コードに触れていません。
+      </div>
+    </header>
+
+    <div class="layout">
+      <main>
+
+        <div class="tldr">
+          <div class="k">TL;DR</div>
+          <p>通知の送信はリクエストパスの中でインラインに実行されていました。負荷がかかると、これがミューテーションのレイテンシーに200〜800&nbsp;msを追加し、SMTPプールが枯渇した際にはメールを黙って取り落としていました。このPRでは、配信を既存の<code>pg-boss</code>キューに移行することで、APIが即座にレスポンスを返し、失敗した送信はバックオフしながらリトライされるようにします。</p>
+        </div>
+
+        <!-- ======================= WHY ======================= -->
+
+        <section id="why">
+          <h2>背景</h2>
+          <p class="lede">先の四半期にコメント内での@メンション機能を追加した際、メンションが発生するたびに、コメントを保存する同じトランザクション内で最大3件の送信(アプリ内通知、メール、Slack)がトリガーされるようになりました。リリース当初は問題ありませんでしたが、今では1件のタスク更新が40人のウォッチャーにファンアウトすることもあり、もはや問題なしとは言えません。</p>
+
+          <div class="ba">
+            <div class="panel">
+              <div class="k">変更前</div>
+              <ul>
+                <li>送信はミューテーションハンドラー内でインラインに実行される</li>
+                <li>SMTPタイムアウト = <em>コメント</em>自体が500エラーになる</li>
+                <li>リトライなし — 取り落としたメールは戻らない</li>
+                <li><code>comments.create</code>のp99: <strong>1.4&nbsp;s</strong></li>
+              </ul>
+            </div>
+            <div class="panel after">
+              <div class="k">変更後</div>
+              <ul>
+                <li>ハンドラーは受信者ごとに1件のジョブをキューに登録し、即座にレスポンスを返す</li>
+                <li>ワーカーは指数バックオフで3回リトライする</li>
+                <li>リトライを使い果たした後の調査用にデッドレターテーブルを用意</li>
+                <li><code>comments.create</code>のp99: <strong>180&nbsp;ms</strong>(ステージング)</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- ======================= FILE TOUR ======================= -->
+
+        <section id="tour">
+          <h2>ファイルごとの解説</h2>
+          <p class="lede">アルファベット順ではなく、読む順番で並べています。まずワーカー(新規部分)から始め、次にエンキュー呼び出し箇所、それから周辺の実装へと進みます。</p>
+
+          <div class="file-tour">
+
+            <details class="file" open>
+              <summary>
+                <span class="chev"></span>
+                <span class="path">packages/notify/src/worker.ts</span>
+                <span class="badge new">新規</span>
+                <span class="stat"><span class="add">+126</span></span>
+              </summary>
+              <div class="file-body">
+                <p class="why"><strong>このPRの中核。</strong><code>notify.deliver</code>ジョブを取り出し、ユーザーのチャネル設定を解決して、適切なアダプターを呼び出す<code>pg-boss</code>のサブスクライバーです。リトライはチャネルごとに設定されており、メールは3回試行、Slackは1回のみです。これはSlack側のAPIがすでに冪等になっているためです。</p>
+                <div class="code"><pre>boss.<span class="fn">work</span>(<span class="str">'notify.deliver'</span>, { batchSize: 20 }, <span class="kw">async</span> (jobs) =&gt; {
+  <span class="kw">for</span> (<span class="kw">const</span> job <span class="kw">of</span> jobs) {
+    <span class="kw">const</span> { userId, event, channel } = job.data;
+    <span class="kw">const</span> prefs = <span class="kw">await</span> <span class="fn">getPrefs</span>(userId);
+    <span class="kw">if</span> (!prefs[channel]) <span class="kw">return</span>;          <span class="cm">// user muted this channel</span>
+
+    <span class="kw">try</span> {
+      <span class="kw">await</span> adapters[channel].<span class="fn">send</span>(userId, event);
+    } <span class="kw">catch</span> (err) {
+      <span class="kw">if</span> (job.retryCount &gt;= MAX_RETRY[channel]) {
+        <span class="kw">await</span> <span class="fn">deadLetter</span>(job, err);         <span class="cm">// don't throw — ack &amp; park</span>
+        <span class="kw">return</span>;
+      }
+      <span class="kw">throw</span> err;                            <span class="cm">// pg-boss reschedules</span>
+    }
+  }
+});</pre></div>
+              </div>
+            </details>
+
+            <details class="file" open>
+              <summary>
+                <span class="chev"></span>
+                <span class="path">packages/api/src/routers/comments.ts</span>
+                <span class="badge mod">変更</span>
+                <span class="stat"><span class="add">+14</span> <span class="del">−62</span></span>
+              </summary>
+              <div class="file-body">
+                <p class="why"><strong>効果が現れる場所。</strong>以前はミューテーションが<code>sendEmail</code>、<code>sendSlack</code>、<code>createInApp</code>を直接呼び出していました。今はコメントを挿入し、受信者を計算して、エンキューするだけです。try/catchのごちゃごちゃした処理はなくなりました。</p>
+                <div class="code"><pre>  <span class="kw">const</span> comment = <span class="kw">await</span> db.comments.<span class="fn">insert</span>(input);
+  <span class="kw">const</span> recipients = <span class="kw">await</span> <span class="fn">resolveWatchers</span>(input.taskId, input.mentions);
+
+<span class="del">  <span class="kw">for</span> (<span class="kw">const</span> r <span class="kw">of</span> recipients) {</span>
+<span class="del">    <span class="kw">await</span> <span class="fn">sendEmail</span>(r, comment);       <span class="cm">// blocked the response</span></span>
+<span class="del">    <span class="kw">await</span> <span class="fn">sendSlack</span>(r, comment);</span>
+<span class="del">  }</span>
+<span class="add">  <span class="kw">await</span> boss.<span class="fn">insert</span>(recipients.flatMap((r) =&gt;</span>
+<span class="add">    CHANNELS.map((ch) =&gt; ({</span>
+<span class="add">      name: <span class="str">'notify.deliver'</span>,</span>
+<span class="add">      data: { userId: r.id, channel: ch, event: toEvent(comment) },</span>
+<span class="add">      singletonKey: <span class="str">`${comment.id}:${r.id}:${ch}`</span>,  <span class="cm">// idempotent</span></span>
+<span class="add">    }))));</span>
+  <span class="kw">return</span> comment;</pre></div>
+              </div>
+            </details>
+
+            <details class="file">
+              <summary>
+                <span class="chev"></span>
+                <span class="path">packages/db/migrations/0051_dead_letter.sql</span>
+                <span class="badge new">新規</span>
+                <span class="stat"><span class="add">+22</span></span>
+              </summary>
+              <div class="file-body">
+                <p class="why">リトライを使い果たしたジョブのためのテーブルです。意図的に自動削除は<em>行っていません</em>。新しい経路を信頼できるようになるまで、週次で確認したいためです。ジョブの完全なペイロードと最後のエラー文字列を保持します。</p>
+              </div>
+            </details>
+
+            <details class="file">
+              <summary>
+                <span class="chev"></span>
+                <span class="path">packages/notify/src/adapters/{email,slack,inapp}.ts</span>
+                <span class="badge mod">変更</span>
+                <span class="stat"><span class="add">+88</span> <span class="del">−74</span></span>
+              </summary>
+              <div class="file-body">
+                <p class="why">大部分はコードの移動です。各アダプターは共通の<code>Adapter</code>インターフェースを実装するようになり、型付けされた<code>RetryableError</code>または<code>PermanentError</code>をスローすることで、ワーカーがリトライすべきかどうかを判断できるようになりました。またメールアダプターは内部のリトライループを廃止しました。リトライはキュー側が担うようになり、二重リトライが4月に重複メールを発生させた原因でした。</p>
+              </div>
+            </details>
+
+            <details class="file">
+              <summary>
+                <span class="chev"></span>
+                <span class="path">apps/worker/src/index.ts, infra/fly.toml</span>
+                <span class="badge mod">変更</span>
+                <span class="stat"><span class="add">+31</span> <span class="del">−4</span></span>
+              </summary>
+              <div class="file-body">
+                <p class="why">既存のワーカープロセスに新しいサブスクライバーを登録し、並行数を5→20に増やします。新しいデプロイ単位は追加していません。</p>
+              </div>
+            </details>
+
+            <details class="file">
+              <summary>
+                <span class="chev"></span>
+                <span class="path">packages/notify/src/__tests__/worker.test.ts</span>
+                <span class="badge new">新規</span>
+                <span class="stat"><span class="add">+137</span></span>
+              </summary>
+              <div class="file-body">
+                <p class="why">リトライの境界、デッドレターの経路、チャネルのミュート、シングルトンキーによる重複排除をカバーしています。テスト用データベースに対して実際のpg-bossを使用しています。前四半期、モック化したキューのテストは通過したのに本番の順序が壊れて痛い目を見たためです。</p>
+              </div>
+            </details>
+
+          </div>
+        </section>
+
+        <!-- ======================= FOCUS ======================= -->
+
+        <section id="focus">
+          <h2>レビューで注目してほしい点</h2>
+          <div class="focus">
+            <div class="item">
+              <div class="n">1</div>
+              <div>
+                <div class="t">リトライ / デッドレターの境界</div>
+                <div class="d"><code>worker.ts:31–44</code>。ここでは例外をキャッチし、<code>retryCount</code>を確認して、放置(park)するか再スローするかを判断しています。このロジックが間違っていると、永久にリトライし続けるか、メッセージを取り落とすかのどちらかになります。これはまさに、このPRが解決しようとしている2つの失敗モードです。</div>
+              </div>
+            </div>
+            <div class="item">
+              <div class="n">2</div>
+              <div>
+                <div class="t">シングルトンキー</div>
+                <div class="d"><code>comments.ts:28</code>。<code>${commentId}:${userId}:${channel}</code>により、APIハンドラーがリトライした場合の再エンキューが冪等になるはずです。タスク間で衝突しないことを確認してください。</div>
+              </div>
+            </div>
+            <div class="item">
+              <div class="n">3</div>
+              <div>
+                <div class="t">意図的にやらなかったこと</div>
+                <div class="d">ユーザーごとのダイジェストのバッチ化、配信確認、優先レーンは実装していません。これらはいずれもこの仕組みの上にきれいに積み重ねられるものであり、一緒に詰め込むとレビューできなくなってしまいます。</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ======================= TEST PLAN ======================= -->
+
+        <section id="tests">
+          <h2>テスト計画</h2>
+          <div class="tests">
+            <div class="test done"><span class="check"></span><div><div class="label">ユニット: リトライ → デッドレター経路、チャネルミュート、シングルトン重複排除</div><div class="note">packages/notify — 14ケース、テストDB上で実際のpg-bossを使用</div></div></div>
+            <div class="test done"><span class="check"></span><div><div class="label">統合: 3人のウォッチャーでコメントを作成し、9件のジョブがエンキューされ処理完了することを確認</div></div></div>
+            <div class="test done"><span class="check"></span><div><div class="label">ステージング負荷試験: comments.createに対して10分間500rps、p99 = 180ms</div><div class="note">以前は1.4sだった — ダッシュボードへのリンクはPRの説明に記載</div></div></div>
+            <div class="test"><span class="check"></span><div><div class="label">手動: バースト送信中にSMTPを停止し、ジョブがデッドレターに入り500エラーが発生しないことを確認</div><div class="note">10%ランプアップの際に実施予定</div></div></div>
+          </div>
+        </section>
+
+        <!-- ======================= ROLLOUT ======================= -->
+
+        <section id="rollout">
+          <h2>ロールアウト</h2>
+          <p class="lede"><code>notify_queue_v2</code>フラグの背後に配置します。旧来のインラインの経路は、切り戻しが必要になった場合に備えて、1リリース分はコードベースに残します(使われないが休眠状態)。</p>
+          <div class="rollout">
+            <div class="step"><div class="when">0日目</div><div class="pct">社内</div><div class="d">Acmeチームのみ。デッドレターテーブルとワーカーのエラー率を監視。</div></div>
+            <div class="step"><div class="when">2日目</div><div class="pct">10%</div><div class="d">ランダムサンプル。デッドレター率が送信数の0.5%を超えたらアラート。</div></div>
+            <div class="step"><div class="when">4日目</div><div class="pct">100%</div><div class="d">完全にランプアップし、来週のフォローアップPRでインラインの経路を削除。</div></div>
+          </div>
+        </section>
+
+      </main>
+
+      <nav class="toc">
+        <div class="t-head">このPRの内容</div>
+        <a href="#why">背景</a>
+        <a href="#tour">ファイルごとの解説</a>
+        <a href="#tour" class="sub">worker.ts</a>
+        <a href="#tour" class="sub">comments.ts</a>
+        <a href="#tour" class="sub">adapters</a>
+        <a href="#focus">レビューの注目点</a>
+        <a href="#tests">テスト計画</a>
+        <a href="#rollout">ロールアウト</a>
+      </nav>
+    </div>
+
+  </div>
+</body>
+</html>

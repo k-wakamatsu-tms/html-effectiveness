@@ -10,6 +10,14 @@ design systems to slide decks, status reports, and small interactive editors.
 Open [`index.html`](index.html) for the full, categorized index, or open any
 numbered file directly in a browser.
 
+## 日本語版
+
+このフォークでは、元の内容・デザイン・機能はそのままに、全ページを日本語化したバージョンを
+[`ja/`](ja/index.html) ディレクトリ配下に用意しています。GitHub Pages でも公開しています。
+
+- English: https://k-wakamatsu-tms.github.io/html-effectiveness/
+- 日本語: https://k-wakamatsu-tms.github.io/html-effectiveness/ja/
+
 ## Contents
 
 | Category | Examples |

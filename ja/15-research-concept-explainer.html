@@ -1,0 +1,370 @@
+<!-- Copyright 2026 Anthropic PBC · SPDX-License-Identifier: Apache-2.0 -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>コンシステントハッシング — インタラクティブ解説</title>
+<style>
+  :root {
+    --ivory:   #FAF9F5;
+    --slate:   #141413;
+    --clay:    #D97757;
+    --oat:     #E3DACC;
+    --olive:   #788C5D;
+    --sky:     #6A8CAF;
+    --gray-150:#F0EEE6;
+    --gray-300:#D1CFC5;
+    --gray-500:#87867F;
+    --gray-700:#3D3D3A;
+    --serif: ui-serif, Georgia, "Times New Roman", serif;
+    --sans:  system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono:  ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--ivory);
+    color: var(--gray-700);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    padding: 56px 24px 120px;
+  }
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 240px;
+    gap: 48px;
+  }
+  @media (max-width: 960px) { .page { grid-template-columns: 1fr; } aside { order: 2; position: static; } }
+
+  /* ── header ───────────────────────────── */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gray-500);
+    margin-bottom: 10px;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 33px;
+    color: var(--slate);
+    letter-spacing: -0.01em;
+    margin-bottom: 12px;
+  }
+  .lead { max-width: 640px; margin-bottom: 8px; }
+  h2 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 22px;
+    color: var(--slate);
+    margin: 40px 0 12px;
+  }
+  p { margin-bottom: 12px; max-width: 680px; }
+  code { font-family: var(--mono); font-size: 13px; }
+  .term {
+    border-bottom: 1.5px dotted var(--clay);
+    cursor: help;
+    color: var(--slate);
+  }
+
+  /* ── demo panel ───────────────────────── */
+  .demo {
+    border: 1.5px solid var(--gray-300);
+    border-radius: 14px;
+    background: #fff;
+    padding: 24px;
+    margin: 12px 0 8px;
+  }
+  .demo-grid {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 28px;
+    align-items: center;
+  }
+  @media (max-width: 760px) { .demo-grid { grid-template-columns: 1fr; } }
+
+  svg.ring { display: block; width: 100%; max-width: 320px; }
+  .ring .track { fill: none; stroke: var(--gray-300); stroke-width: 14; }
+  .ring .arc   { fill: none; stroke-width: 14; transition: stroke-dasharray 300ms ease; }
+  .ring .node  { stroke: #fff; stroke-width: 2; transition: cx 300ms, cy 300ms, opacity 200ms; }
+  .ring .key   { fill: var(--slate); transition: cx 300ms, cy 300ms; }
+  .ring .lbl   { font-family: var(--mono); font-size: 10px; fill: var(--gray-500); }
+
+  .controls { font-size: 13px; }
+  .controls .row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .controls label { width: 64px; color: var(--gray-500); font-family: var(--mono); font-size: 11px; }
+  .controls .val { font-family: var(--mono); font-size: 12px; color: var(--slate); width: 28px; }
+  .controls input[type=range] { flex: 1; accent-color: var(--clay); }
+  .controls button {
+    appearance: none;
+    border: 1.5px solid var(--gray-300);
+    background: var(--gray-150);
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 10px;
+    cursor: pointer;
+    margin-right: 6px;
+  }
+  .controls button:hover { background: var(--oat); }
+
+  .readout {
+    border-top: 1px solid var(--gray-300);
+    margin-top: 16px;
+    padding-top: 14px;
+    font-size: 13px;
+  }
+  .readout b { color: var(--slate); }
+  .moved { color: var(--clay); font-family: var(--mono); }
+
+  /* ── compare table ────────────────────── */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    max-width: 640px;
+    font-size: 13.5px;
+    margin: 12px 0;
+  }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--gray-300); }
+  th { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gray-500); font-weight: 500; }
+  td.bad { color: #B04A3F; }
+  td.good { color: var(--olive); }
+
+  /* ── glossary ─────────────────────────── */
+  aside {
+    position: sticky;
+    top: 32px;
+    align-self: start;
+    border: 1.5px solid var(--gray-300);
+    border-radius: 12px;
+    background: #fff;
+    padding: 18px 18px 8px;
+  }
+  aside .label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gray-500);
+    margin-bottom: 12px;
+  }
+  aside dl dt {
+    font-family: var(--serif);
+    font-size: 15px;
+    color: var(--slate);
+    margin-top: 0;
+  }
+  aside dl dd {
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--gray-700);
+    margin: 2px 0 14px;
+  }
+  aside dl dt.hl, aside dl dt.hl + dd { background: rgba(217,119,87,0.10); margin-left: -8px; margin-right: -8px; padding-left: 8px; padding-right: 8px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <main>
+    <div class="eyebrow">リサーチ＆ラーニング · コンセプト解説</div>
+    <h1>コンシステントハッシング、1つのリングで理解する</h1>
+    <p class="lead">
+      <em>K</em> 個のキーが <em>N</em> 台のキャッシュサーバーに分散しているとする。サーバーが1台落ちる、あるいは1台追加する。
+      そのとき、いくつのキーを移動する必要があるだろうか？ 素朴な <code>hash(key) mod N</code> では、答えは「ほぼすべて」に
+      なる。コンシステントハッシングなら、それをおよそ <code>K&nbsp;/&nbsp;N</code> まで減らせる。その理由を見ていこう。
+    </p>
+
+    <h2>仕組み：直線ではなく円にハッシュする</h2>
+    <p>
+      <span class="term" data-term="node">ノード</span>とキーの両方を、同じ
+      <span class="term" data-term="ring">リング</span>（ラップアラウンドするハッシュ出力空間）上にマッピングする。
+      キーは、その位置から時計回りに歩いて最初に見つかったノードに属する。ノードが離脱すると、その
+      <span class="term" data-term="arc">アーク</span>内のキーだけが次のノードへ再割り当てされ、それ以外はすべて
+      そのまま残る。
+    </p>
+
+    <div class="demo">
+      <div class="demo-grid">
+        <svg class="ring" id="ring" viewBox="0 0 260 260"></svg>
+        <div class="controls">
+          <div class="row">
+            <label>ノード</label>
+            <input id="nSlider" type="range" min="2" max="8" value="4">
+            <span class="val" id="nVal">4</span>
+          </div>
+          <div class="row">
+            <label>キー</label>
+            <input id="kSlider" type="range" min="10" max="60" value="32" step="2">
+            <span class="val" id="kVal">32</span>
+          </div>
+          <div>
+            <button id="rm">ノードを削除</button>
+            <button id="add">ノードを追加</button>
+            <button id="reset">リセット</button>
+          </div>
+          <div class="readout" id="readout">
+            <b>4</b> ノード · <b>32</b> キー · 前回の変更で<span class="moved">—</span>移動
+          </div>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:13px; color:var(--gray-500); max-width:640px;">
+      色分けされたアークが所有権を示す。ノードを削除すると、そのアークは時計回りの隣接ノードに引き継がれる。アークの
+      外側にあるドットは色を保ったままだ。これが全てのアイデアだ。
+    </p>
+
+    <h2><code>mod N</code> との比較</h2>
+    <table>
+      <thead><tr><th></th><th>hash mod N</th><th>コンシステントハッシング</th></tr></thead>
+      <tbody>
+        <tr><td>N→N+1 のときに移動するキー数</td><td class="bad">全キーの約 (N−1)/N</td><td class="good">約 1/(N+1)</td></tr>
+        <tr><td>ホットスポットのリスク</td><td class="good">構造的に均等</td><td>不均一 — <span class="term" data-term="vnode">仮想ノード</span>で解消</td></tr>
+        <tr><td>検索コスト</td><td class="good">O(1)</td><td>O(log N)（リング上の二分探索）</td></tr>
+        <tr><td>採用例</td><td>配列シャーディング、単純なロードバランサ</td><td>Dynamo、Cassandra、Memcached クライアント、Envoy</td></tr>
+      </tbody>
+    </table>
+
+    <h2>実際に出会う場面</h2>
+    <p>
+      サイズが変化するプール全体に状態を分散させる場面なら、いつでも登場する。たとえばキャッシュ群、パーティション化
+      されたキュー、オブジェクトストレージ、スティッキーセッションを伴うリクエストルーティングなどだ。
+      <span class="term" data-term="vnode">仮想ノード</span>方式（各物理ノードが1つの大きなアークではなく、多数の
+      小さなアークを持つ）は、実際のプロダクションシステムで採用されている方式であり、負荷を平準化し、
+      リバランスをさらに滑らかにしてくれる。
+    </p>
+  </main>
+
+  <!-- glossary -->
+  <aside>
+    <div class="label">用語集</div>
+    <dl id="gloss">
+      <dt data-g="ring">リング</dt>
+      <dd>ハッシュ関数の出力範囲を円として扱い、<code>max</code> の次の値が <code>0</code> になるようにしたもの。</dd>
+      <dt data-g="node">ノード</dt>
+      <dd><code>hash(node_id)</code> の位置でリング上に配置されたサーバー。自身と反時計回りの隣接ノードとの間にある
+      すべてのキーを所有する。</dd>
+      <dt data-g="arc">アーク</dt>
+      <dd>ノードが所有するリングの区間。ノードを削除すると、そのアークは次のノードのアークに統合される。</dd>
+      <dt data-g="vnode">仮想ノード</dt>
+      <dd>各物理ノードをリング上の多数の位置に配置することで、アークを小さく均等なサイズにする手法。</dd>
+      <dt data-g="successor">後続ノード</dt>
+      <dd>ある地点から時計回りに見て最初に見つかるノード — そこに位置するキーの所有者となる。</dd>
+    </dl>
+  </aside>
+
+</div>
+
+<script>
+/* ── tiny deterministic hash so the demo is stable ── */
+function h(s) {
+  let x = 2166136261;
+  for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = (x * 16777619) >>> 0; }
+  return x / 4294967296;
+}
+const COLORS = ["#D97757", "#788C5D", "#6A8CAF", "#C2A83E", "#B04A3F", "#87867F", "#3D6E6E", "#A67C52"];
+const CX = 130, CY = 130, R = 100, RKEY = 78;
+const TAU = Math.PI * 2;
+
+const ring = document.getElementById("ring");
+const nSlider = document.getElementById("nSlider");
+const kSlider = document.getElementById("kSlider");
+const nVal = document.getElementById("nVal");
+const kVal = document.getElementById("kVal");
+const readout = document.getElementById("readout");
+
+let nodes = [], keys = [], lastOwner = {};
+
+function pt(r, t) { return [CX + r * Math.sin(t * TAU), CY - r * Math.cos(t * TAU)]; }
+
+function ownerOf(t) {
+  const sorted = [...nodes].sort((a, b) => a.t - b.t);
+  for (const n of sorted) if (n.t >= t) return n;
+  return sorted[0];
+}
+
+function buildNodes(n) {
+  nodes = [];
+  for (let i = 0; i < n; i++) nodes.push({ id: "n" + i, t: h("node-" + i), color: COLORS[i % COLORS.length] });
+}
+function buildKeys(k) {
+  keys = [];
+  for (let i = 0; i < k; i++) keys.push({ id: "k" + i, t: h("key-" + i) });
+}
+
+function arcPath(t0, t1) {
+  const [x0, y0] = pt(R, t0), [x1, y1] = pt(R, t1);
+  let d = t1 - t0; if (d <= 0) d += 1;
+  const large = d > 0.5 ? 1 : 0;
+  return `M ${x0} ${y0} A ${R} ${R} 0 ${large} 1 ${x1} ${y1}`;
+}
+
+function render(moved) {
+  const sorted = [...nodes].sort((a, b) => a.t - b.t);
+  let svg = `<circle class="track" cx="${CX}" cy="${CY}" r="${R}"/>`;
+
+  for (let i = 0; i < sorted.length; i++) {
+    const cur = sorted[i];
+    const prev = sorted[(i - 1 + sorted.length) % sorted.length];
+    svg += `<path class="arc" stroke="${cur.color}" d="${arcPath(prev.t, cur.t)}"/>`;
+  }
+  for (const k of keys) {
+    const o = ownerOf(k.t);
+    const [x, y] = pt(RKEY, k.t);
+    svg += `<circle class="key" r="3.5" cx="${x}" cy="${y}" fill="${o.color}"/>`;
+  }
+  for (const n of sorted) {
+    const [x, y] = pt(R, n.t);
+    svg += `<circle class="node" r="9" cx="${x}" cy="${y}" fill="${n.color}"/>`;
+  }
+  svg += `<text class="lbl" x="${CX}" y="18" text-anchor="middle">0</text>`;
+  ring.innerHTML = svg;
+
+  readout.innerHTML =
+    `<b>${nodes.length}</b> ノード · <b>${keys.length}</b> キー · ` +
+    `前回の変更で<span class="moved">${moved == null ? "—" : moved + "件 (" + Math.round(moved / keys.length * 100) + "%)"}</span>移動`;
+}
+
+function diffAndRender() {
+  let moved = 0;
+  for (const k of keys) {
+    const o = ownerOf(k.t).id;
+    if (lastOwner[k.id] && lastOwner[k.id] !== o) moved++;
+    lastOwner[k.id] = o;
+  }
+  render(moved);
+}
+
+function reset() {
+  buildNodes(+nSlider.value);
+  buildKeys(+kSlider.value);
+  lastOwner = {};
+  for (const k of keys) lastOwner[k.id] = ownerOf(k.t).id;
+  nVal.textContent = nSlider.value;
+  kVal.textContent = kSlider.value;
+  render(null);
+}
+
+nSlider.oninput = () => { nVal.textContent = nSlider.value; buildNodes(+nSlider.value); diffAndRender(); };
+kSlider.oninput = () => { kVal.textContent = kSlider.value; buildKeys(+kSlider.value); lastOwner = {}; for (const k of keys) lastOwner[k.id] = ownerOf(k.t).id; render(null); };
+document.getElementById("rm").onclick = () => { if (nodes.length > 2) { nodes.splice(Math.floor(Math.random() * nodes.length), 1); diffAndRender(); } };
+document.getElementById("add").onclick = () => { if (nodes.length < 12) { const i = nodes.length; nodes.push({ id: "n" + Date.now(), t: Math.random(), color: COLORS[i % COLORS.length] }); diffAndRender(); } };
+document.getElementById("reset").onclick = reset;
+
+/* glossary highlight */
+document.querySelectorAll(".term").forEach(el => {
+  const g = el.dataset.term;
+  el.addEventListener("mouseenter", () => document.querySelector(`dt[data-g="${g}"]`)?.classList.add("hl"));
+  el.addEventListener("mouseleave", () => document.querySelector(`dt[data-g="${g}"]`)?.classList.remove("hl"));
+});
+
+reset();
+</script>
+</body>
+</html>

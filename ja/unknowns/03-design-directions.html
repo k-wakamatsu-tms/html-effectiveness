@@ -1,0 +1,1050 @@
+<!-- Copyright 2026 Anthropic PBC · SPDX-License-Identifier: Apache-2.0 -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4つのデザイン方向性 — 知らないことを知る</title>
+<style>
+  :root {
+    --ivory:  #FAF9F5;
+    --paper:  #FFFFFF;
+    --slate:  #141413;
+    --clay:   #D97757;
+    --clay-d: #B85C3E;
+    --oat:    #E3DACC;
+    --olive:  #788C5D;
+    --g100:   #F0EEE6;
+    --g200:   #E6E3DA;
+    --g300:   #D1CFC5;
+    --g500:   #87867F;
+    --g700:   #3D3D3A;
+    --serif: ui-serif, Georgia, "Times New Roman", Times, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--ivory);
+    color: var(--slate);
+    font-family: var(--sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 24px 110px; }
+  @media (max-width: 480px) { .wrap { padding: 0 16px 90px; } }
+
+  /* ── header ─────────────────────────────── */
+  header.page {
+    padding: 56px 0 8px;
+    position: relative;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--g500);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 24px; height: 1.5px;
+    background: var(--clay);
+    flex-shrink: 0;
+  }
+  .backlink {
+    position: absolute;
+    top: 60px; right: 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--g500);
+    text-decoration: none;
+  }
+  .backlink:hover { color: var(--clay); }
+  @media (max-width: 640px) {
+    .backlink { position: static; display: inline-block; margin-bottom: 14px; }
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(32px, 5vw, 48px);
+    line-height: 1.08;
+    letter-spacing: -0.018em;
+    margin: 0 0 12px;
+  }
+  .lede {
+    font-size: 16px;
+    color: var(--g700);
+    max-width: 640px;
+    margin: 0 0 34px;
+  }
+
+  /* ── prompt box ─────────────────────────── */
+  .prompt-card {
+    background: var(--paper);
+    border: 1.5px solid var(--g300);
+    border-radius: 14px;
+    padding: 22px 26px 20px;
+    position: relative;
+  }
+  .prompt-card .label {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--clay);
+    margin-bottom: 12px;
+  }
+  .prompt-card blockquote {
+    margin: 0;
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 17.5px;
+    line-height: 1.55;
+    color: var(--slate);
+    max-width: 62ch;
+  }
+  .copy-btn {
+    position: absolute;
+    top: 18px; right: 18px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    padding: 6px 12px;
+    border: 1.5px solid var(--g300);
+    border-radius: 999px;
+    background: var(--ivory);
+    color: var(--g700);
+    cursor: pointer;
+    transition: border-color 120ms, color 120ms;
+  }
+  .copy-btn:hover { border-color: var(--clay); color: var(--clay); }
+  .copy-btn.copied { border-color: var(--olive); color: var(--olive); }
+  @media (max-width: 520px) {
+    .copy-btn { position: static; margin-top: 14px; display: inline-block; }
+  }
+
+  /* ── divider ────────────────────────────── */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 52px 0 40px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--g500);
+    white-space: nowrap;
+  }
+  .divider::before, .divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--g300);
+  }
+
+  /* ── artifact intro ─────────────────────── */
+  .art-intro {
+    font-size: 15px;
+    color: var(--g700);
+    max-width: 660px;
+    margin: 0 0 14px;
+  }
+  .art-intro strong { color: var(--slate); }
+  .same-data {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--g500);
+    background: var(--g100);
+    border: 1px solid var(--g200);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 0 0 46px;
+    line-height: 1.7;
+  }
+  .same-data b { color: var(--g700); font-weight: 600; }
+
+  /* ── direction block chrome ─────────────── */
+  .direction { margin: 0 0 64px; }
+  .dir-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .dir-head .num {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--clay);
+    font-weight: 600;
+  }
+  .dir-head h2 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 24px;
+    letter-spacing: -0.012em;
+    margin: 0;
+  }
+  .dir-says {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 15px;
+    color: var(--g700);
+    margin: 0 0 16px;
+  }
+  .dir-says::before { content: "This direction says: "; font-style: normal; font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--g500); margin-right: 6px; }
+
+  .frame {
+    background: var(--paper);
+    border: 1.5px solid var(--g300);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .frame-bar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 14px;
+    border-bottom: 1.5px solid var(--g200);
+    background: var(--g100);
+  }
+  .frame-bar .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--g300); }
+  .frame-bar .url {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--g500);
+    margin-left: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .frame-body { overflow-x: auto; }
+
+  /* reaction chips under each frame */
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .chip {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1.5px solid var(--g300);
+    background: var(--paper);
+    cursor: pointer;
+    color: var(--g700);
+    transition: border-color 120ms, background 120ms, color 120ms;
+    text-align: left;
+  }
+  .chip .k { font-weight: 600; letter-spacing: 0.05em; }
+  .chip.steal .k { color: var(--olive); }
+  .chip.skip .k { color: var(--clay-d); }
+  .chip:hover { border-color: var(--g500); }
+  .chip.steal.on { border-color: var(--olive); background: #F1F3EC; }
+  .chip.skip.on  { border-color: var(--clay); background: #FBEFE9; }
+  .chip.on .k::after { content: " ✓"; }
+  .chip-hint {
+    font-size: 12px;
+    color: var(--g500);
+    margin-top: 8px;
+  }
+
+  /* ══════════════ DIRECTION 1 — ops console ══════════════ */
+  .d1 {
+    background: #1B1B19;
+    color: #D8D6CE;
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 18px 20px 20px;
+    min-width: 620px;
+  }
+  .d1 .topline {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 14px;
+    gap: 12px;
+  }
+  .d1 .prod { color: #F5F4EF; font-weight: 600; letter-spacing: 0.06em; }
+  .d1 .prod span { color: var(--clay); }
+  .d1 .env { font-size: 10px; color: #6E6D66; letter-spacing: 0.1em; }
+  .d1 .metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: #33322F;
+    border: 1px solid #33322F;
+    margin-bottom: 16px;
+  }
+  .d1 .metric { background: #232320; padding: 10px 12px; }
+  .d1 .metric .mk { font-size: 9.5px; letter-spacing: 0.12em; color: #6E6D66; text-transform: uppercase; }
+  .d1 .metric .mv { font-size: 19px; color: #F5F4EF; line-height: 1.3; }
+  .d1 .metric .mv em { font-style: normal; font-size: 10px; color: var(--olive); }
+  .d1 .metric .mv em.bad { color: var(--clay); }
+  .d1 table { border-collapse: collapse; width: 100%; }
+  .d1 th {
+    text-align: left;
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #6E6D66;
+    font-weight: 500;
+    padding: 6px 10px;
+    border-bottom: 1px solid #33322F;
+  }
+  .d1 td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #262624;
+    white-space: nowrap;
+  }
+  .d1 tr:hover td { background: #232320; }
+  .d1 .id { color: #6E6D66; }
+  .d1 .t { color: #F5F4EF; }
+  .d1 .rv { color: #A8A69E; }
+  .d1 .sdot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
+  .d1 .s-rev  .sdot { background: var(--oat); }
+  .d1 .s-chg  .sdot { background: var(--clay); }
+  .d1 .s-wait .sdot { background: #6E6D66; }
+  .d1 .s-ok   .sdot { background: var(--olive); }
+  .d1 .s-chg { color: var(--clay); }
+  .d1 .s-ok { color: var(--olive); }
+  .d1 .num-r { text-align: right; }
+  .d1 .age-hot { color: var(--clay); }
+
+  /* ══════════════ DIRECTION 2 — editorial ══════════════ */
+  .d2 {
+    background: var(--ivory);
+    padding: 40px 44px 44px;
+    font-family: var(--sans);
+    min-width: 300px;
+  }
+  @media (max-width: 560px) { .d2 { padding: 28px 20px 32px; } }
+  .d2 .masth {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    border-bottom: 1.5px solid var(--g300);
+    padding-bottom: 26px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .d2 .bignum {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(72px, 14vw, 118px);
+    line-height: 0.85;
+    letter-spacing: -0.03em;
+    color: var(--slate);
+  }
+  .d2 .bignum-wrap { display: flex; align-items: baseline; gap: 18px; }
+  .d2 .bignum-cap {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 19px;
+    color: var(--g700);
+    max-width: 12ch;
+    line-height: 1.3;
+  }
+  .d2 .weekly {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 15px;
+    color: var(--g500);
+    text-align: right;
+  }
+  .d2 .weekly b { color: var(--olive); font-weight: 600; font-style: normal; font-size: 22px; font-family: var(--serif); }
+  .d2 .row {
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--g200);
+  }
+  .d2 .row:last-child { border-bottom: none; }
+  .d2 .av {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    align-self: center;
+  }
+  .d2 .av.a1 { background: var(--oat); color: var(--g700); }
+  .d2 .av.a2 { background: var(--olive); color: var(--ivory); }
+  .d2 .av.a3 { background: var(--clay); color: var(--ivory); }
+  .d2 .av.a4 { background: var(--slate); color: var(--ivory); }
+  .d2 .info { flex: 1; min-width: 0; }
+  .d2 .vt {
+    font-family: var(--serif);
+    font-size: 21px;
+    font-weight: 500;
+    letter-spacing: -0.008em;
+    line-height: 1.25;
+  }
+  .d2 .meta {
+    font-size: 12px;
+    color: var(--g500);
+    letter-spacing: 0.02em;
+    margin-top: 3px;
+  }
+  .d2 .phrase {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 15px;
+    color: var(--g700);
+    text-align: right;
+    white-space: nowrap;
+    align-self: center;
+  }
+  .d2 .phrase.hot { color: var(--clay-d); }
+  .d2 .phrase.ok { color: var(--olive); }
+  @media (max-width: 560px) {
+    .d2 .row { flex-wrap: wrap; }
+    .d2 .phrase { text-align: left; width: 100%; padding-left: 52px; }
+  }
+
+  /* ══════════════ DIRECTION 3 — kanban/timeline ══════════════ */
+  .d3 {
+    background: var(--paper);
+    padding: 22px;
+    min-width: 640px;
+  }
+  .d3 .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 16px;
+  }
+  .d3 .head .hl { font-weight: 600; font-size: 14px; letter-spacing: -0.01em; }
+  .d3 .head .hr { font-size: 12px; color: var(--g500); }
+  .d3 .head .hr b { color: var(--olive); font-weight: 600; }
+  .d3 .cols {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  .d3 .col { background: var(--g100); border-radius: 10px; padding: 10px; }
+  .d3 .col-h {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--g500);
+    padding: 2px 4px 8px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .d3 .col-h .cnt { color: var(--g700); }
+  .d3 .col.chg .col-h { color: var(--clay-d); }
+  .d3 .col.ok  .col-h { color: var(--olive); }
+  .d3 .kcard {
+    background: var(--paper);
+    border: 1px solid var(--g200);
+    border-radius: 8px;
+    padding: 10px 11px;
+    margin-bottom: 8px;
+    font-size: 12.5px;
+  }
+  .d3 .kcard:last-child { margin-bottom: 0; }
+  .d3 .kcard .kt { font-weight: 600; line-height: 1.35; }
+  .d3 .kcard .km {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 7px;
+    font-size: 11px;
+    color: var(--g500);
+  }
+  .d3 .mini-av {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 8.5px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .d3 .mini-av.a1 { background: var(--oat); color: var(--g700); }
+  .d3 .mini-av.a2 { background: var(--olive); color: var(--ivory); }
+  .d3 .mini-av.a3 { background: var(--clay); color: var(--ivory); }
+  .d3 .mini-av.a4 { background: var(--slate); color: var(--ivory); }
+  .d3 .kcard .cmt { margin-left: auto; font-family: var(--mono); }
+  .d3 .kcard.stale { border-left: 3px solid var(--clay); }
+  .d3 .tl-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--g500);
+    margin-bottom: 8px;
+  }
+  .d3 .tl {
+    position: relative;
+    height: 58px;
+    border-top: 1.5px solid var(--g300);
+  }
+  .d3 .tick {
+    position: absolute;
+    top: -4px;
+    width: 1.5px; height: 8px;
+    background: var(--g300);
+  }
+  .d3 .tick-lab {
+    position: absolute;
+    top: 8px;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--g500);
+    transform: translateX(-50%);
+  }
+  .d3 .tdot {
+    position: absolute;
+    top: 24px;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+  .d3 .tdot .d { width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--paper); box-shadow: 0 0 0 1px var(--g300); }
+  .d3 .tdot .d.rev { background: var(--oat); }
+  .d3 .tdot .d.chg { background: var(--clay); }
+  .d3 .tdot .d.ok  { background: var(--olive); }
+  .d3 .tdot .d.wait{ background: var(--g300); }
+  .d3 .tdot .tn { font-family: var(--mono); font-size: 8.5px; color: var(--g500); white-space: nowrap; }
+
+  /* ══════════════ DIRECTION 4 — brutalist terminal ══════════════ */
+  .d4 {
+    background: var(--slate);
+    color: var(--ivory);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.7;
+    padding: 22px 24px 26px;
+    min-width: 620px;
+  }
+  .d4 .hdr { color: var(--g500); }
+  .d4 .hdr b { color: var(--ivory); font-weight: 600; }
+  .d4 .rule { color: #4A4945; user-select: none; overflow: hidden; white-space: nowrap; }
+  .d4 .kv { display: flex; gap: 28px; flex-wrap: wrap; margin: 10px 0 14px; }
+  .d4 .kv span { color: var(--g500); }
+  .d4 .kv b { color: var(--oat); font-weight: 600; }
+  .d4 .kv b.ok { color: #A3B58A; }
+  .d4 .kv b.hot { color: var(--clay); }
+  .d4 table { border-collapse: collapse; width: 100%; }
+  .d4 th {
+    text-align: left;
+    color: var(--g500);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 10.5px;
+    padding: 4px 12px 4px 0;
+    border-bottom: 1px dashed #4A4945;
+  }
+  .d4 td { padding: 6px 12px 6px 0; border-bottom: 1px dashed #33322F; white-space: nowrap; vertical-align: top; }
+  .d4 .st { font-weight: 600; }
+  .d4 .st.rev  { color: var(--oat); }
+  .d4 .st.chg  { color: var(--clay); }
+  .d4 .st.wait { color: var(--g500); }
+  .d4 .st.ok   { color: #A3B58A; }
+  .d4 .idx { color: var(--g500); }
+  .d4 .cmd { margin-top: 16px; color: var(--g500); }
+  .d4 .cmd b { color: var(--ivory); font-weight: 500; }
+  .d4 .cursor {
+    display: inline-block;
+    width: 8px; height: 15px;
+    background: var(--clay);
+    vertical-align: -2px;
+    animation: blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ── how to react card ──────────────────── */
+  .react-card {
+    background: var(--paper);
+    border: 1.5px solid var(--g300);
+    border-radius: 14px;
+    padding: 26px 28px 26px;
+    margin-top: 8px;
+  }
+  @media (max-width: 480px) { .react-card { padding: 20px 16px; } }
+  .react-card .label {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--clay);
+    margin-bottom: 10px;
+  }
+  .react-card h3 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 23px;
+    letter-spacing: -0.012em;
+    margin: 0 0 8px;
+  }
+  .react-card p { font-size: 14.5px; color: var(--g700); max-width: 640px; margin: 0 0 18px; }
+  .pick-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .pick {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1.5px solid var(--g300);
+    background: var(--ivory);
+    color: var(--g700);
+    cursor: pointer;
+    transition: border-color 120ms, background 120ms, color 120ms;
+  }
+  .pick:hover { border-color: var(--g500); }
+  .pick.on { border-color: var(--slate); background: var(--slate); color: var(--ivory); }
+  .reply-wrap { position: relative; }
+  .reply {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.75;
+    background: var(--g100);
+    border: 1px solid var(--g200);
+    border-radius: 10px;
+    padding: 16px 18px;
+    color: var(--g700);
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-height: 96px;
+    margin: 0;
+  }
+  .copy-reply {
+    position: absolute;
+    top: 10px; right: 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 11px;
+    border: 1.5px solid var(--g300);
+    border-radius: 999px;
+    background: var(--paper);
+    color: var(--g700);
+    cursor: pointer;
+    transition: border-color 120ms, color 120ms;
+  }
+  .copy-reply:hover { border-color: var(--clay); color: var(--clay); }
+  .copy-reply.copied { border-color: var(--olive); color: var(--olive); }
+  .react-foot {
+    font-size: 12.5px;
+    color: var(--g500);
+    margin-top: 14px;
+  }
+
+  /* ── footer ─────────────────────────────── */
+  footer {
+    margin-top: 90px;
+    border-top: 1.5px solid var(--g300);
+    padding-top: 28px;
+    font-size: 13px;
+    color: var(--g500);
+  }
+  footer a { color: var(--clay); text-decoration-color: var(--oat); text-underline-offset: 3px; }
+  footer a:hover { text-decoration-color: var(--clay); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page">
+    <a class="backlink" href="index.html">&larr; すべての例へ戻る</a>
+    <div class="eyebrow">知らないことを知る &middot; 実装前</div>
+    <h1>4つのデザイン方向性</h1>
+    <p class="lede">
+      欲しいデザインを言葉で説明できないなら、無理に説明しようとしなくていい — まったく異なる4案をその場で
+      描いてもらい、自分の直感に仕様を決めさせよう。想像するより、反応する方がずっと簡単だ。
+    </p>
+    <div class="prompt-card">
+      <div class="label">プロンプト</div>
+      <blockquote id="prompt-text">&ldquo;Acme向けのレビューキューダッシュボードが欲しいのですが、ビジュアルの好みが分からず、何が可能なのかも見当がつきません。まったく異なる4つのデザイン方向性を持つHTMLページを1枚作ってもらえますか。それを見て反応できるようにしたいんです。&rdquo;</blockquote>
+      <button class="copy-btn" id="copy-prompt" type="button">プロンプトをコピー</button>
+    </div>
+  </header>
+
+  <div class="divider">Claudeが出力した内容</div>
+
+  <p class="art-intro">
+    同じデータ、4つの流儀。以下の各フレームはすべて<strong>まったく同じレビューキュー</strong> &mdash;
+    Acmeでレビュー待ちの動画5本 &mdash; を描いており、変わるのはデザインだけです。各フレームの下にある
+    チップをタップして、<strong>採用</strong>したい点や<strong>見送り</strong>たい点を選んでください。選んだ
+    内容はページ下部で返信文としてまとめられます。
+  </p>
+  <div class="same-data">
+    <b>共有データセット:</b> レビュー待ち5件 &middot; レビュアー4名(MK, DR, LT, JB) &middot; ステータス:
+    レビュー中 / 変更依頼 / レビュアー待ち / メモ付き承認 &middot;
+    未対応コメント23件 &middot; 今週完了したレビュー14件 &middot; 平均対応時間6.2h
+  </div>
+
+  <!-- ═══════════════ DIRECTION 1 ═══════════════ -->
+  <div class="direction">
+    <div class="dir-head"><span class="num">方向性 1 / 4</span><h2>高密度な運用コンソール</h2></div>
+    <p class="dir-says">&ldquo;レビューキューはオペレーションのためのシステムだ。すべてを表示し、無駄をなくし、異常値を目立たせよう。&rdquo;</p>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">acme.app/ops/review-queue</span></div>
+      <div class="frame-body">
+        <div class="d1">
+          <div class="topline">
+            <span class="prod">ACME<span>/</span>REVIEW-OPS</span>
+            <span class="env">チーム: LAUNCH-CONTENT &middot; 更新 14:32</span>
+          </div>
+          <div class="metrics">
+            <div class="metric"><div class="mk">保留中</div><div class="mv">5 <em class="bad">本日+2</em></div></div>
+            <div class="metric"><div class="mk">平均対応時間</div><div class="mv">6.2h <em>&minus;0.8h</em></div></div>
+            <div class="metric"><div class="mk">完了数 / 7日間</div><div class="mv">14 <em>順調</em></div></div>
+            <div class="metric"><div class="mk">最長待機</div><div class="mv">2d 4h <em class="bad">SLA 48h</em></div></div>
+          </div>
+          <table>
+            <thead>
+              <tr><th>ID</th><th>動画</th><th class="num-r">長さ</th><th>レビュアー</th><th class="num-r">コメント</th><th>ステータス</th><th class="num-r">経過</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="id">VR-2214</td><td class="t">Q3ローンチティーザー &mdash; v4</td><td class="num-r">0:47</td><td class="rv">MK &middot; Kowalski</td><td class="num-r">12</td><td class="s-chg"><span class="sdot"></span>変更依頼</td><td class="num-r">2h</td></tr>
+              <tr><td class="id">VR-2213</td><td class="t">オンボーディング解説動画 &mdash; 最終版</td><td class="num-r">3:12</td><td class="rv">DR &middot; Raman</td><td class="num-r">3</td><td class="s-rev"><span class="sdot"></span>レビュー中</td><td class="num-r">5h</td></tr>
+              <tr><td class="id">VR-2209</td><td class="t">カスタマーストーリー: Halvorsen Co.</td><td class="num-r">2:05</td><td class="rv">LT &middot; Torres</td><td class="num-r">0</td><td class="s-wait"><span class="sdot"></span>待機中</td><td class="num-r age-hot">1d 6h</td></tr>
+              <tr><td class="id">VR-2206</td><td class="t">ホームページ ヒーローループ &mdash; v9</td><td class="num-r">0:15</td><td class="rv">MK &middot; Kowalski</td><td class="num-r">7</td><td class="s-ok"><span class="sdot"></span>承認*</td><td class="num-r">1d 8h</td></tr>
+              <tr><td class="id">VR-2201</td><td class="t">ポッドキャストクリップ &mdash; 第32回</td><td class="num-r">1:28</td><td class="rv">JB &middot; Beck</td><td class="num-r">1</td><td class="s-rev"><span class="sdot"></span>レビュー中</td><td class="num-r age-hot">2d 4h</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="chips" data-dir="1">
+      <button class="chip steal" type="button" data-label="4指標のメトリクス帯 (D1)"><span class="k">採用</span> &middot; 4指標のメトリクス帯</button>
+      <button class="chip steal" type="button" data-label="ステータスドット + インラインのコメント数 (D1)"><span class="k">採用</span> &middot; ステータスドット + コメント数</button>
+      <button class="chip skip" type="button" data-label="全面ダークテーマ (D1)"><span class="k">見送り</span> &middot; 全面ダークテーマ</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════ DIRECTION 2 ═══════════════ -->
+  <div class="direction">
+    <div class="dir-head"><span class="num">方向性 2 / 4</span><h2>ゆとりのあるエディトリアルカード</h2></div>
+    <p class="dir-says">&ldquo;クリエイティブ作品のレビューは、落ち着いた気持ちでできるべきだ。意味のある数字をひとつ示し、あとはキューを読み物のリストとして見せよう。&rdquo;</p>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">acme.app/studio/queue</span></div>
+      <div class="frame-body">
+        <div class="d2">
+          <div class="masth">
+            <div class="bignum-wrap">
+              <div class="bignum">5</div>
+              <div class="bignum-cap">判断待ちの動画</div>
+            </div>
+            <div class="weekly"><b>14</b>件が今週完了 &mdash;<br>5月以降でもっとも速いペースです。</div>
+          </div>
+          <div class="row">
+            <span class="av a1">MK</span>
+            <div class="info">
+              <div class="vt">Q3ローンチティーザー &mdash; v4</div>
+              <div class="meta">0:47 &middot; Maya Kowalski &middot; コメント12件 &middot; 2時間前にアップロード</div>
+            </div>
+            <div class="phrase hot">変更依頼</div>
+          </div>
+          <div class="row">
+            <span class="av a2">DR</span>
+            <div class="info">
+              <div class="vt">オンボーディング解説動画 &mdash; 最終版</div>
+              <div class="meta">3:12 &middot; Dev Raman &middot; コメント3件 &middot; 5時間前にアップロード</div>
+            </div>
+            <div class="phrase">現在レビュー中</div>
+          </div>
+          <div class="row">
+            <span class="av a3">LT</span>
+            <div class="info">
+              <div class="vt">カスタマーストーリー: Halvorsen Co.</div>
+              <div class="meta">2:05 &middot; Lena Torres &middot; コメントなし &middot; 昨日アップロード</div>
+            </div>
+            <div class="phrase">Lenaの対応待ち</div>
+          </div>
+          <div class="row">
+            <span class="av a1">MK</span>
+            <div class="info">
+              <div class="vt">ホームページ ヒーローループ &mdash; v9</div>
+              <div class="meta">0:15 &middot; Maya Kowalski &middot; コメント7件 &middot; 昨日アップロード</div>
+            </div>
+            <div class="phrase ok">メモ付きで承認</div>
+          </div>
+          <div class="row">
+            <span class="av a4">JB</span>
+            <div class="info">
+              <div class="vt">ポッドキャストクリップ &mdash; 第32回</div>
+              <div class="meta">1:28 &middot; Jonah Beck &middot; コメント1件 &middot; 2日前にアップロード</div>
+            </div>
+            <div class="phrase">現在レビュー中</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="chips" data-dir="2">
+      <button class="chip steal" type="button" data-label="大きなセリフ体の数字見出し (D2)"><span class="k">採用</span> &middot; 大きなセリフ体の数字</button>
+      <button class="chip steal" type="button" data-label="&quot;Lenaの対応待ち&quot;のような人間味のあるステータス表現 (D2)"><span class="k">採用</span> &middot; 人間味のあるステータス表現</button>
+      <button class="chip skip" type="button" data-label="低密度レイアウト &mdash; 30件になると機能しない (D2)"><span class="k">見送り</span> &middot; 低密度(30件では厳しい)</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════ DIRECTION 3 ═══════════════ -->
+  <div class="direction">
+    <div class="dir-head"><span class="num">方向性 3 / 4</span><h2>カンバン/タイムライン ハイブリッド</h2></div>
+    <p class="dir-says">&ldquo;レビューとは動いていくものだ。各動画がパイプラインのどこにあり、どれくらい滞留しているかを見せよう。&rdquo;</p>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">acme.app/board/review-queue</span></div>
+      <div class="frame-body">
+        <div class="d3">
+          <div class="head">
+            <span class="hl">レビューパイプライン &mdash; Launch content</span>
+            <span class="hr"><b>14</b>件が今週完了 &middot; 判断まで平均6.2h</span>
+          </div>
+          <div class="cols">
+            <div class="col wait">
+              <div class="col-h"><span>待機中/レビュー中</span><span class="cnt">3</span></div>
+              <div class="kcard">
+                <div class="kt">オンボーディング解説動画 &mdash; 最終版</div>
+                <div class="km"><span class="mini-av a2">DR</span> 3:12 &middot; 5h経過 <span class="cmt">3&#9998;</span></div>
+              </div>
+              <div class="kcard stale">
+                <div class="kt">カスタマーストーリー: Halvorsen Co.</div>
+                <div class="km"><span class="mini-av a3">LT</span> 2:05 &middot; 1d 6h経過 <span class="cmt">0&#9998;</span></div>
+              </div>
+              <div class="kcard stale">
+                <div class="kt">ポッドキャストクリップ &mdash; 第32回</div>
+                <div class="km"><span class="mini-av a4">JB</span> 1:28 &middot; 2d 4h経過 <span class="cmt">1&#9998;</span></div>
+              </div>
+            </div>
+            <div class="col chg">
+              <div class="col-h"><span>変更依頼</span><span class="cnt">1</span></div>
+              <div class="kcard">
+                <div class="kt">Q3ローンチティーザー &mdash; v4</div>
+                <div class="km"><span class="mini-av a1">MK</span> 0:47 &middot; 2h経過 <span class="cmt">12&#9998;</span></div>
+              </div>
+            </div>
+            <div class="col ok">
+              <div class="col-h"><span>メモ付き承認</span><span class="cnt">1</span></div>
+              <div class="kcard">
+                <div class="kt">ホームページ ヒーローループ &mdash; v9</div>
+                <div class="km"><span class="mini-av a1">MK</span> 0:15 &middot; 1d 8h経過 <span class="cmt">7&#9998;</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="tl-label">キュー内の滞留時間 &mdash; 24時間を超えると赤フラグ</div>
+          <div class="tl">
+            <span class="tick" style="left:0%"></span><span class="tick-lab" style="left:0%">現在</span>
+            <span class="tick" style="left:25%"></span><span class="tick-lab" style="left:25%">12時間</span>
+            <span class="tick" style="left:50%"></span><span class="tick-lab" style="left:50%">24時間</span>
+            <span class="tick" style="left:75%"></span><span class="tick-lab" style="left:75%">36時間</span>
+            <span class="tick" style="left:99%"></span><span class="tick-lab" style="left:98%">48時間以上</span>
+            <span class="tdot" style="left:4%"><span class="d chg"></span><span class="tn">teaser v4</span></span>
+            <span class="tdot" style="left:11%"><span class="d rev"></span><span class="tn">onboarding</span></span>
+            <span class="tdot" style="left:62%"><span class="d wait"></span><span class="tn">Halvorsen</span></span>
+            <span class="tdot" style="left:67%"><span class="d ok"></span><span class="tn">hero v9</span></span>
+            <span class="tdot" style="left:96%"><span class="d rev"></span><span class="tn">ep. 32</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="chips" data-dir="3">
+      <button class="chip steal" type="button" data-label="キュー内滞留時間のタイムラインバー (D3)"><span class="k">採用</span> &middot; 滞留時間のタイムラインバー</button>
+      <button class="chip steal" type="button" data-label="停滞カードの左端の赤色ライン (D3)"><span class="k">採用</span> &middot; 停滞カードの赤い左端</button>
+      <button class="chip skip" type="button" data-label="3列構成 &mdash; 5件だけだと無駄が多い (D3)"><span class="k">見送り</span> &middot; n=5だと列が空っぽに見える</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════ DIRECTION 4 ═══════════════ -->
+  <div class="direction">
+    <div class="dir-head"><span class="num">方向性 4 / 4</span><h2>ブルータリストなモノスペースターミナル</h2></div>
+    <p class="dir-says">&ldquo;装飾もクロームも要らない。キューとはリストだ。上から下まで読んで、さっと立ち去ればいい。&rdquo;</p>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">acme.app/q &mdash; キーボード操作優先</span></div>
+      <div class="frame-body">
+        <div class="d4">
+          <div class="hdr"><b>acme</b> :: review-queue :: launch-content</div>
+          <div class="rule">════════════════════════════════════════════════════════════════════</div>
+          <div class="kv">
+            <span>PENDING=<b>5</b></span>
+            <span>CLEARED_7D=<b class="ok">14</b></span>
+            <span>AVG_TURNAROUND=<b>6.2h</b></span>
+            <span>OLDEST=<b class="hot">2d4h&nbsp;!SLA</b></span>
+          </div>
+          <table>
+            <thead>
+              <tr><th>#</th><th>タイトル</th><th>長さ</th><th>レビュアー</th><th>コメント</th><th>状態</th><th>経過</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="idx">1</td><td>q3-launch-teaser.v4</td><td>0:47</td><td>MK</td><td>12</td><td class="st chg">[変更依頼]</td><td>2h</td></tr>
+              <tr><td class="idx">2</td><td>onboarding-walkthrough.final</td><td>3:12</td><td>DR</td><td>3</td><td class="st rev">[レビュー中]</td><td>5h</td></tr>
+              <tr><td class="idx">3</td><td>customer-story.halvorsen</td><td>2:05</td><td>LT</td><td>0</td><td class="st wait">[待機中]</td><td>1d6h</td></tr>
+              <tr><td class="idx">4</td><td>homepage-hero-loop.v9</td><td>0:15</td><td>MK</td><td>7</td><td class="st ok">[承認+メモ]</td><td>1d8h</td></tr>
+              <tr><td class="idx">5</td><td>podcast-clip.ep32</td><td>1:28</td><td>JB</td><td>1</td><td class="st rev">[レビュー中]</td><td>2d4h</td></tr>
+            </tbody>
+          </table>
+          <div class="cmd">&gt; <b>open 3</b> &mdash; j/k 移動 &middot; o 開く &middot; a 承認 &middot; c コメント <span class="cursor"></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="chips" data-dir="4">
+      <button class="chip steal" type="button" data-label="すべての行にあるキーボード優先のショートカット (D4)"><span class="k">採用</span> &middot; どこでもキーボードショートカット</button>
+      <button class="chip skip" type="button" data-label="大文字+角括弧のステータス表記 (D4)"><span class="k">見送り</span> &middot; [すべて大文字+角括弧]</button>
+      <button class="chip skip" type="button" data-label="ターミナルのコスプレ &mdash; 目新しさはすぐ消える (D4)"><span class="k">見送り</span> &middot; 目新しさはすぐ消える</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════ HOW TO REACT ═══════════════ -->
+  <div class="react-card">
+    <div class="label">反応の仕方</div>
+    <h3>方向性と採用ポイントを返信しよう</h3>
+    <p>
+      デザインブリーフを書く必要はありません &mdash; それこそがこの仕組みの狙いです。全体の
+      <em>雰囲気</em>が正しいと感じる方向性を選び、他の案から引き継ぎたい2〜3点を挙げるだけで十分です。
+      方向性とチップをタップすれば、返信文は自動的に組み立てられます。
+    </p>
+    <div class="pick-row" id="pick-row">
+      <button class="pick" type="button" data-dir="1" data-name="方向性1(運用コンソール)">D1 &middot; 運用コンソール</button>
+      <button class="pick on" type="button" data-dir="2" data-name="方向性2(エディトリアルカード)">D2 &middot; エディトリアル</button>
+      <button class="pick" type="button" data-dir="3" data-name="方向性3(カンバン/タイムライン)">D3 &middot; カンバン/タイムライン</button>
+      <button class="pick" type="button" data-dir="4" data-name="方向性4(ターミナル)">D4 &middot; ターミナル</button>
+    </div>
+    <div class="reply-wrap">
+      <pre class="reply" id="reply"></pre>
+      <button class="copy-reply" id="copy-reply" type="button">返信をコピー</button>
+    </div>
+    <p class="react-foot">
+      そのままチャットに貼り付けてください。Claudeが採用ポイントを勝者の方向性に統合し、ひとつに練り上げた
+      デザインを返してくれます &mdash; 自分でも気づいていなかった好みを言葉で説明しようとするより、はるかに
+      短い対話で済みます。
+    </p>
+  </div>
+
+  <footer>
+    <a href="index.html">知らないことを知る</a>の一部 &mdash; ブログ記事に付随する事例です。
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  // ---- copy helper -------------------------------------------------------
+  function copyText(text, btn, idleLabel) {
+    function done() {
+      btn.classList.add('copied');
+      var prev = btn.textContent;
+      btn.textContent = 'コピーしました';
+      setTimeout(function () {
+        btn.classList.remove('copied');
+        btn.textContent = idleLabel || prev;
+      }, 1600);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallback(); });
+    } else {
+      fallback();
+    }
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+  }
+
+  // ---- copy prompt -------------------------------------------------------
+  var promptBtn = document.getElementById('copy-prompt');
+  var promptText = document.getElementById('prompt-text').textContent
+    .trim().replace(/^[“"]/, '').replace(/[”"]$/, '');
+  promptBtn.addEventListener('click', function () {
+    copyText(promptText, promptBtn, 'プロンプトをコピー');
+  });
+
+  // ---- reaction builder --------------------------------------------------
+  var picks = Array.prototype.slice.call(document.querySelectorAll('.pick'));
+  var chips = Array.prototype.slice.call(document.querySelectorAll('.chip'));
+  var replyEl = document.getElementById('reply');
+
+  function decode(s) {
+    // chip labels contain entities via data attributes already decoded by the parser
+    return s;
+  }
+
+  function currentDirection() {
+    var on = picks.filter(function (p) { return p.classList.contains('on'); })[0];
+    return on ? on.getAttribute('data-name') : null;
+  }
+
+  function buildReply() {
+    var dir = currentDirection();
+    var steals = [], skips = [];
+    chips.forEach(function (c) {
+      if (!c.classList.contains('on')) return;
+      var label = decode(c.getAttribute('data-label'));
+      if (c.classList.contains('steal')) steals.push(label);
+      else skips.push(label);
+    });
+    var lines = [];
+    lines.push((dir || '[方向性を選んでください]') + 'で進める。');
+    if (steals.length) lines.push('採用: ' + steals.join('、') + '。');
+    if (skips.length) lines.push('見送り: ' + skips.join('、') + '。');
+    if (!steals.length && !skips.length) {
+      lines.push('(各フレームの下にある採用/見送りチップをタップして入力してください。)');
+    }
+    lines.push('そのうえで、/api/reviews?team=launch-content エンドポイントを使い、src/pages/ReviewQueue.tsx に実際のページを実装してください。');
+    replyEl.textContent = lines.join('\n');
+  }
+
+  picks.forEach(function (p) {
+    p.addEventListener('click', function () {
+      picks.forEach(function (q) { q.classList.remove('on'); });
+      p.classList.add('on');
+      buildReply();
+    });
+  });
+  chips.forEach(function (c) {
+    c.addEventListener('click', function () {
+      c.classList.toggle('on');
+      buildReply();
+    });
+  });
+
+  // sensible starting selection so the reply never opens empty
+  var preselect = [
+    '大きなセリフ体の数字見出し (D2)',
+    '4指標のメトリクス帯 (D1)',
+    'キュー内滞留時間のタイムラインバー (D3)'
+  ];
+  chips.forEach(function (c) {
+    if (preselect.indexOf(c.getAttribute('data-label')) !== -1) c.classList.add('on');
+  });
+  buildReply();
+
+  // ---- copy reply --------------------------------------------------------
+  var replyBtn = document.getElementById('copy-reply');
+  replyBtn.addEventListener('click', function () {
+    copyText(replyEl.textContent, replyBtn, '返信をコピー');
+  });
+})();
+</script>
+</body>
+</html>
